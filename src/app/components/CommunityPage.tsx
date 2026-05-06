@@ -1,5 +1,5 @@
 import { Link } from "react-router";
-import { Heart, MessageCircle, Eye, Brain, TrendingUp, Star, Filter } from "lucide-react";
+import { Heart, MessageCircle, Eye, Brain, TrendingUp, Star, Filter, Search } from "lucide-react";
 import { motion } from "motion/react";
 import { useState } from "react";
 import * as Tabs from "@radix-ui/react-tabs";
@@ -30,7 +30,7 @@ export default function CommunityPage() {
       comments: 28,
       views: 1240,
       tags: ["Ciencia", "Astronomía"],
-      preview: "from-blue-500 via-cyan-500 to-purple-500",
+      color: "bg-primary-subtle text-primary border-primary/10",
       nodes: 24,
     },
     {
@@ -42,7 +42,7 @@ export default function CommunityPage() {
       comments: 45,
       views: 980,
       tags: ["Historia", "Europa"],
-      preview: "from-red-500 via-orange-500 to-yellow-500",
+      color: "bg-muted text-muted-foreground border-border",
       nodes: 31,
     },
     {
@@ -54,7 +54,7 @@ export default function CommunityPage() {
       comments: 19,
       views: 756,
       tags: ["Biología", "Plantas"],
-      preview: "from-green-500 via-emerald-500 to-teal-500",
+      color: "bg-muted text-muted-foreground border-border",
       nodes: 18,
     },
     {
@@ -66,7 +66,7 @@ export default function CommunityPage() {
       comments: 52,
       views: 1580,
       tags: ["Biología", "Genética"],
-      preview: "from-purple-500 via-pink-500 to-red-500",
+      color: "bg-muted text-muted-foreground border-border",
       nodes: 27,
     },
     {
@@ -78,7 +78,7 @@ export default function CommunityPage() {
       comments: 34,
       views: 892,
       tags: ["Historia", "Conflictos"],
-      preview: "from-gray-600 via-gray-500 to-gray-700",
+      color: "bg-muted text-muted-foreground border-border",
       nodes: 42,
     },
     {
@@ -90,31 +90,43 @@ export default function CommunityPage() {
       comments: 41,
       views: 1120,
       tags: ["Química", "Elementos"],
-      preview: "from-indigo-500 via-violet-500 to-purple-500",
+      color: "bg-muted text-muted-foreground border-border",
       nodes: 36,
     },
   ];
 
   return (
-    <div className="min-h-screen bg-[#0a0a0f] pb-20 md:pb-0">
-      <nav className="sticky top-0 z-40 p-3 md:p-4 backdrop-blur-md bg-black/40 border-b border-white/10">
+    <div className="min-h-screen bg-background pb-20 md:pb-0 font-sans text-foreground">
+      <nav className="sticky top-0 z-40 p-4 bg-background border-b border-border shadow-sm">
         <div className="container mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Brain className="w-7 h-7 text-cyan-400" />
-            <span className="text-xl font-semibold text-white">
-              Community Maps
+            <Brain className="w-6 h-6 text-primary" />
+            <span className="text-lg font-bold text-foreground tracking-tight">
+              Comunidad
             </span>
           </div>
-          <div className="hidden md:flex items-center gap-3">
+          
+          <div className="hidden md:flex items-center gap-4 flex-1 max-w-md mx-8">
+            <div className="relative w-full">
+              <Search className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
+              <input 
+                type="text" 
+                placeholder="Buscar mapas, temas o autores..." 
+                className="w-full pl-9 pr-4 py-2 bg-muted border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+              />
+            </div>
+          </div>
+
+          <div className="hidden md:flex items-center gap-6">
             <Link
               to="/dashboard/student"
-              className="text-sm text-gray-400 hover:text-white transition-colors"
+              className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors"
             >
               Dashboard
             </Link>
             <Link
               to="/map/create"
-              className="px-4 py-2 rounded-lg bg-gradient-to-r from-cyan-500 to-purple-500 text-white text-sm font-medium hover:from-cyan-400 hover:to-purple-400 transition-all"
+              className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary-hover transition-all shadow-sm"
             >
               Crear mapa
             </Link>
@@ -122,38 +134,41 @@ export default function CommunityPage() {
         </div>
       </nav>
 
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 py-8 max-w-7xl">
         <Tabs.Root defaultValue="trending" className="space-y-6">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <Tabs.List className="flex gap-2 p-1 rounded-xl bg-white/5 border border-white/10">
+            <Tabs.List className="flex gap-2 p-1 rounded-xl bg-card border border-border shadow-sm">
               <Tabs.Trigger
                 value="trending"
-                className="px-4 py-2 rounded-lg text-sm font-medium text-gray-400 transition-all data-[state=active]:bg-white/10 data-[state=active]:text-white"
+                className="px-4 py-2 rounded-lg text-sm font-semibold text-muted-foreground transition-all hover:bg-muted data-[state=active]:bg-primary-subtle data-[state=active]:text-primary"
               >
                 <div className="flex items-center gap-2">
                   <TrendingUp className="w-4 h-4" />
-                  Trending
+                  Tendencias
                 </div>
               </Tabs.Trigger>
               <Tabs.Trigger
                 value="popular"
-                className="px-4 py-2 rounded-lg text-sm font-medium text-gray-400 transition-all data-[state=active]:bg-white/10 data-[state=active]:text-white"
+                className="px-4 py-2 rounded-lg text-sm font-semibold text-muted-foreground transition-all hover:bg-muted data-[state=active]:bg-primary-subtle data-[state=active]:text-primary"
               >
                 <div className="flex items-center gap-2">
                   <Star className="w-4 h-4" />
-                  Popular
+                  Populares
                 </div>
               </Tabs.Trigger>
               <Tabs.Trigger
                 value="recent"
-                className="px-4 py-2 rounded-lg text-sm font-medium text-gray-400 transition-all data-[state=active]:bg-white/10 data-[state=active]:text-white"
+                className="px-4 py-2 rounded-lg text-sm font-semibold text-muted-foreground transition-all hover:bg-muted data-[state=active]:bg-primary-subtle data-[state=active]:text-primary"
               >
-                Recientes
+                <div className="flex items-center gap-2">
+                  <Brain className="w-4 h-4" />
+                  Recientes
+                </div>
               </Tabs.Trigger>
             </Tabs.List>
 
-            <button className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-gray-400 hover:text-white hover:bg-white/10 transition-all">
-              <Filter className="w-4 h-4" />
+            <button className="flex items-center gap-2 px-4 py-2 rounded-lg bg-card border border-border text-foreground font-semibold hover:bg-muted transition-all shadow-sm">
+              <Filter className="w-4 h-4 text-muted-foreground" />
               <span className="text-sm">Filtros</span>
             </button>
           </div>
@@ -163,121 +178,77 @@ export default function CommunityPage() {
               {communityMaps.map((map, i) => (
                 <motion.div
                   key={map.id}
-                  initial={{ opacity: 0, y: 20 }}
+                  initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.1 }}
-                  className="group"
+                  transition={{ delay: i * 0.05 }}
+                  className="group bg-card rounded-xl border border-border shadow-sm hover:shadow-md hover:border-primary/20 transition-all overflow-hidden flex flex-col"
                 >
-                  <Link to={`/map/${map.id}`} className="block">
-                    <div className="relative rounded-2xl overflow-hidden bg-gradient-to-br from-white/5 to-white/10 border border-white/10 hover:border-white/20 transition-all mb-4">
-                      <div
-                        className={`aspect-[4/3] bg-gradient-to-br ${map.preview} opacity-20 relative overflow-hidden`}
-                      >
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          {[...Array(8)].map((_, i) => (
-                            <motion.div
-                              key={i}
-                              className="absolute w-8 h-8 rounded-full bg-white/20 backdrop-blur-sm"
-                              style={{
-                                left: `${20 + Math.random() * 60}%`,
-                                top: `${20 + Math.random() * 60}%`,
-                              }}
-                              animate={{
-                                scale: [1, 1.2, 1],
-                                opacity: [0.3, 0.6, 0.3],
-                              }}
-                              transition={{
-                                duration: 2 + Math.random(),
-                                repeat: Infinity,
-                                delay: i * 0.2,
-                              }}
-                            />
-                          ))}
-                          {[...Array(12)].map((_, i) => (
-                            <svg
-                              key={i}
-                              className="absolute w-full h-full"
-                              style={{
-                                left: `${Math.random() * 20 - 10}%`,
-                                top: `${Math.random() * 20 - 10}%`,
-                              }}
-                            >
-                              <line
-                                x1={`${20 + Math.random() * 30}%`}
-                                y1={`${20 + Math.random() * 30}%`}
-                                x2={`${50 + Math.random() * 30}%`}
-                                y2={`${50 + Math.random() * 30}%`}
-                                stroke="rgba(255,255,255,0.1)"
-                                strokeWidth="1"
-                              />
-                            </svg>
-                          ))}
+                  <Link to={`/map/${map.id}`} className="block flex-1">
+                    <div className={`aspect-[16/9] w-full ${map.color} flex items-center justify-center relative border-b border-border`}>
+                       <Brain className="w-12 h-12 opacity-30" />
+                       <div className="absolute inset-0 bg-background/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px]">
+                          <span className="px-4 py-2 bg-card rounded-lg text-sm font-semibold text-foreground shadow-sm border border-border">Ver mapa</span>
+                       </div>
+                    </div>
+                    
+                    <div className="p-4 space-y-3">
+                      <div className="flex gap-2 flex-wrap mb-2">
+                        {map.tags.map((tag) => (
+                          <span
+                            key={tag}
+                            className="px-2 py-0.5 rounded text-[10px] font-bold bg-muted text-muted-foreground uppercase tracking-wider"
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                      
+                      <h3 className="font-bold text-foreground line-clamp-1 group-hover:text-primary transition-colors tracking-tight">
+                        {map.title}
+                      </h3>
+                      
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center text-[10px] font-bold text-muted-foreground border border-border">
+                          {map.avatar}
                         </div>
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                        <div className="absolute bottom-3 left-3 flex gap-2">
-                          {map.tags.map((tag) => (
-                            <span
-                              key={tag}
-                              className="px-2 py-1 rounded-md bg-black/40 backdrop-blur-sm text-xs text-white border border-white/20"
-                            >
-                              {tag}
-                            </span>
-                          ))}
-                        </div>
+                        <span className="text-sm text-muted-foreground font-semibold">
+                          {map.author}
+                        </span>
                       </div>
                     </div>
                   </Link>
 
-                  <div className="space-y-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1 min-w-0">
-                        <Link
-                          to={`/map/${map.id}`}
-                          className="text-white font-semibold hover:text-cyan-400 transition-colors line-clamp-1"
-                        >
-                          {map.title}
-                        </Link>
-                        <div className="flex items-center gap-2 mt-1">
-                          <div className="w-6 h-6 rounded-full bg-gradient-to-br from-cyan-500 to-purple-500 flex items-center justify-center text-[10px] font-bold text-white">
-                            {map.avatar}
-                          </div>
-                          <span className="text-sm text-gray-400">
-                            {map.author}
-                          </span>
-                        </div>
+                  <div className="px-4 py-3 border-t border-border bg-muted flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-4">
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          toggleLike(map.id);
+                        }}
+                        className={`flex items-center gap-1.5 transition-colors font-bold ${
+                          likedMaps.has(map.id)
+                            ? "text-primary"
+                            : "text-muted-foreground hover:text-primary"
+                        }`}
+                      >
+                        <Heart
+                          className={`w-3.5 h-3.5 ${likedMaps.has(map.id) ? "fill-current" : ""}`}
+                        />
+                        <span>
+                          {map.likes + (likedMaps.has(map.id) ? 1 : 0)}
+                        </span>
+                      </button>
+                      <div className="flex items-center gap-1.5 text-muted-foreground font-bold">
+                        <MessageCircle className="w-3.5 h-3.5" />
+                        <span>{map.comments}</span>
                       </div>
                     </div>
-
-                    <div className="flex items-center justify-between text-sm">
-                      <div className="flex items-center gap-4">
-                        <button
-                          onClick={(e) => {
-                            e.preventDefault();
-                            toggleLike(map.id);
-                          }}
-                          className={`flex items-center gap-1 transition-colors ${
-                            likedMaps.has(map.id)
-                              ? "text-pink-400"
-                              : "text-gray-500 hover:text-gray-400"
-                          }`}
-                        >
-                          <Heart
-                            className={`w-4 h-4 ${likedMaps.has(map.id) ? "fill-current" : ""}`}
-                          />
-                          <span>
-                            {map.likes + (likedMaps.has(map.id) ? 1 : 0)}
-                          </span>
-                        </button>
-                        <div className="flex items-center gap-1 text-gray-500">
-                          <MessageCircle className="w-4 h-4" />
-                          <span>{map.comments}</span>
-                        </div>
-                        <div className="flex items-center gap-1 text-gray-500">
-                          <Eye className="w-4 h-4" />
-                          <span>{map.views}</span>
-                        </div>
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-1 text-muted-foreground font-bold">
+                         <Eye className="w-3 h-3" />
+                         {map.views}
                       </div>
-                      <div className="text-xs text-gray-600">
+                      <div className="font-bold text-muted-foreground/60">
                         {map.nodes} nodos
                       </div>
                     </div>
@@ -288,13 +259,13 @@ export default function CommunityPage() {
           </Tabs.Content>
 
           <Tabs.Content value="popular">
-            <div className="text-center py-20 text-gray-500">
+            <div className="text-center py-24 text-gray-500 bg-white rounded-xl border border-gray-200 border-dashed">
               Mapas populares próximamente...
             </div>
           </Tabs.Content>
 
           <Tabs.Content value="recent">
-            <div className="text-center py-20 text-gray-500">
+            <div className="text-center py-24 text-gray-500 bg-white rounded-xl border border-gray-200 border-dashed">
               Mapas recientes próximamente...
             </div>
           </Tabs.Content>

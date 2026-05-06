@@ -36,16 +36,16 @@ export default function ProfilePage() {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-950 via-purple-900 to-blue-950 pb-20 md:pb-0">
-      <nav className="p-3 md:p-4 backdrop-blur-sm bg-white/5 border-b border-white/10">
+    <div className="min-h-screen bg-gray-50 pb-20 md:pb-0 font-sans">
+      <nav className="p-4 bg-white border-b border-gray-200 shadow-sm">
         <div className="container mx-auto flex items-center gap-4">
           <Link
             to="/dashboard/student"
-            className="text-gray-300 hover:text-white transition-colors"
+            className="text-gray-500 hover:text-gray-900 transition-colors"
           >
-            <ArrowLeft className="w-6 h-6" />
+            <ArrowLeft className="w-5 h-5" />
           </Link>
-          <h1 className="text-2xl font-bold text-white">Mi Perfil</h1>
+          <h1 className="text-xl font-bold text-gray-900">Mi Perfil</h1>
         </div>
       </nav>
 
@@ -55,74 +55,75 @@ export default function ProfilePage() {
           animate={{ opacity: 1, y: 0 }}
           className="space-y-6"
         >
-          <div className="p-8 rounded-2xl bg-gradient-to-br from-cyan-500/20 to-purple-500/20 backdrop-blur-md border border-white/10">
+          <div className="p-8 rounded-xl bg-white border border-gray-200 shadow-sm relative overflow-hidden">
             <div className="flex items-center gap-6 mb-6">
-              <div className="w-24 h-24 rounded-full bg-gradient-to-br from-cyan-500 to-purple-500 flex items-center justify-center text-white text-3xl font-bold">
+              <div className="w-24 h-24 rounded-full bg-purple-100 flex items-center justify-center text-purple-700 text-3xl font-bold border border-purple-200 z-10">
                 {user.avatar}
               </div>
-              <div className="flex-1">
-                <h2 className="text-3xl font-bold text-white mb-1">
+              <div className="flex-1 z-10">
+                <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-1 tracking-tight">
                   {user.name}
                 </h2>
-                <p className="text-gray-300 mb-2">{user.email}</p>
-                <div className="flex items-center gap-3 text-sm text-gray-400">
+                <p className="text-gray-500 mb-2 font-medium">{user.email}</p>
+                <div className="flex items-center gap-2 text-sm text-gray-400 font-medium">
                   <Calendar className="w-4 h-4" />
                   Miembro desde {user.joinDate}
                 </div>
               </div>
-              <button className="px-4 py-2 rounded-lg bg-white/10 border border-white/20 text-white hover:bg-white/20 transition-all flex items-center gap-2">
+              <button className="px-4 py-2 rounded-md bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2 font-medium shadow-sm z-10">
                 <Edit className="w-4 h-4" />
-                Editar
+                <span className="hidden sm:inline">Editar</span>
               </button>
             </div>
 
-            <div className="space-y-3">
-              <div className="flex justify-between text-sm text-gray-300">
+            <div className="space-y-3 z-10 relative">
+              <div className="flex justify-between text-sm font-semibold text-gray-700">
                 <span>Nivel {user.level}</span>
-                <span>
+                <span className="text-gray-500">
                   {user.xp} / {user.xpToNext} XP
                 </span>
               </div>
               <Progress.Root
-                className="relative h-4 overflow-hidden rounded-full bg-white/10"
+                className="relative h-2.5 overflow-hidden rounded-full bg-gray-100"
                 value={(user.xp / user.xpToNext) * 100}
               >
                 <Progress.Indicator
-                  className="h-full bg-gradient-to-r from-cyan-500 to-purple-500 transition-all duration-500"
+                  className="h-full bg-purple-600 transition-all duration-500 rounded-full"
                   style={{
                     transform: `translateX(-${100 - (user.xp / user.xpToNext) * 100}%)`,
                   }}
                 />
               </Progress.Root>
             </div>
+            <div className="absolute top-0 right-0 w-64 h-64 bg-purple-50 rounded-full blur-3xl -mr-20 -mt-20 opacity-50 pointer-events-none" />
           </div>
 
           <div className="grid md:grid-cols-3 gap-4">
-            <div className="p-6 rounded-xl bg-white/5 backdrop-blur-md border border-white/10">
-              <Flame className="w-8 h-8 text-orange-400 mb-3" />
-              <div className="text-3xl font-bold text-white mb-1">
+            <div className="p-6 rounded-xl bg-white border border-gray-200 shadow-sm">
+              <Flame className="w-8 h-8 text-orange-500 mb-3" />
+              <div className="text-3xl font-bold text-gray-900 mb-1">
                 {user.streak}
               </div>
-              <div className="text-sm text-gray-400">Días de racha</div>
+              <div className="text-sm text-gray-500 font-medium">Días de racha</div>
             </div>
-            <div className="p-6 rounded-xl bg-white/5 backdrop-blur-md border border-white/10">
-              <Trophy className="w-8 h-8 text-amber-400 mb-3" />
-              <div className="text-3xl font-bold text-white mb-1">
+            <div className="p-6 rounded-xl bg-white border border-gray-200 shadow-sm">
+              <Trophy className="w-8 h-8 text-amber-500 mb-3" />
+              <div className="text-3xl font-bold text-gray-900 mb-1">
                 {user.totalPoints.toLocaleString()}
               </div>
-              <div className="text-sm text-gray-400">Puntos totales</div>
+              <div className="text-sm text-gray-500 font-medium">Puntos totales</div>
             </div>
-            <div className="p-6 rounded-xl bg-white/5 backdrop-blur-md border border-white/10">
-              <Star className="w-8 h-8 text-cyan-400 mb-3" />
-              <div className="text-3xl font-bold text-white mb-1">
+            <div className="p-6 rounded-xl bg-white border border-gray-200 shadow-sm">
+              <Star className="w-8 h-8 text-purple-600 mb-3" />
+              <div className="text-3xl font-bold text-gray-900 mb-1">
                 {user.conceptsMastered}
               </div>
-              <div className="text-sm text-gray-400">Conceptos dominados</div>
+              <div className="text-sm text-gray-500 font-medium">Conceptos dominados</div>
             </div>
           </div>
 
-          <div className="p-6 rounded-2xl bg-white/5 backdrop-blur-md border border-white/10">
-            <h3 className="text-xl font-bold text-white mb-6">Logros</h3>
+          <div className="p-6 rounded-xl bg-white border border-gray-200 shadow-sm">
+            <h3 className="text-xl font-bold text-gray-900 mb-6">Logros</h3>
             <div className="grid md:grid-cols-2 gap-4">
               {achievements.map((achievement, i) => (
                 <motion.div
@@ -132,25 +133,25 @@ export default function ProfilePage() {
                   transition={{ delay: i * 0.1 }}
                   className={`p-4 rounded-xl border ${
                     achievement.unlocked
-                      ? "bg-gradient-to-br from-cyan-500/10 to-purple-500/10 border-cyan-500/30"
-                      : "bg-white/5 border-white/10 opacity-50"
+                      ? "bg-purple-50 border-purple-100 shadow-sm"
+                      : "bg-gray-50 border-gray-200 opacity-60 grayscale"
                   }`}
                 >
                   <div className="flex items-center gap-4">
                     <div
                       className={`w-12 h-12 rounded-full flex items-center justify-center ${
                         achievement.unlocked
-                          ? "bg-gradient-to-br from-cyan-500 to-purple-500"
-                          : "bg-gray-600"
+                          ? "bg-purple-100"
+                          : "bg-gray-200"
                       }`}
                     >
-                      <achievement.icon className="w-6 h-6 text-white" />
+                      <achievement.icon className={`w-6 h-6 ${achievement.unlocked ? "text-purple-600" : "text-gray-400"}`} />
                     </div>
                     <div>
-                      <h4 className="font-semibold text-white">
+                      <h4 className={`font-semibold ${achievement.unlocked ? "text-gray-900" : "text-gray-500"}`}>
                         {achievement.name}
                       </h4>
-                      <p className="text-sm text-gray-400">{achievement.desc}</p>
+                      <p className="text-sm text-gray-500">{achievement.desc}</p>
                     </div>
                   </div>
                 </motion.div>
@@ -158,28 +159,28 @@ export default function ProfilePage() {
             </div>
             <Link
               to="/achievements"
-              className="mt-4 block text-center text-cyan-400 hover:text-cyan-300 transition-colors"
+              className="mt-6 block text-center text-sm font-medium text-purple-600 hover:text-purple-700 transition-colors"
             >
-              Ver todos los logros →
+              Ver todos los logros &rarr;
             </Link>
           </div>
 
-          <div className="p-6 rounded-2xl bg-white/5 backdrop-blur-md border border-white/10">
-            <h3 className="text-xl font-bold text-white mb-6">
+          <div className="p-6 rounded-xl bg-white border border-gray-200 shadow-sm mb-6">
+            <h3 className="text-xl font-bold text-gray-900 mb-6">
               Estadísticas
             </h3>
             <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <span className="text-gray-300">Mapas creados</span>
-                <span className="font-bold text-white">{user.mapsCreated}</span>
+              <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                <span className="text-gray-600 font-medium">Mapas creados</span>
+                <span className="font-bold text-gray-900">{user.mapsCreated}</span>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-gray-300">Sesiones de estudio</span>
-                <span className="font-bold text-white">{user.studySessions}</span>
+              <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                <span className="text-gray-600 font-medium">Sesiones de estudio</span>
+                <span className="font-bold text-gray-900">{user.studySessions}</span>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-gray-300">Conceptos dominados</span>
-                <span className="font-bold text-white">
+              <div className="flex justify-between items-center py-2">
+                <span className="text-gray-600 font-medium">Conceptos dominados</span>
+                <span className="font-bold text-purple-600">
                   {user.conceptsMastered}
                 </span>
               </div>

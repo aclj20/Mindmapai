@@ -12,6 +12,8 @@ import {
   Settings,
   LogOut,
   Menu,
+  Target,
+  Check,
 } from "lucide-react";
 import { motion } from "motion/react";
 import * as Progress from "@radix-ui/react-progress";
@@ -30,10 +32,10 @@ export default function StudentDashboard() {
   };
 
   const badges = [
-    { icon: Trophy, name: "Explorador", color: "from-amber-500 to-orange-500" },
-    { icon: Star, name: "Creador Pro", color: "from-cyan-500 to-blue-500" },
-    { icon: Flame, name: "Racha 7 días", color: "from-red-500 to-pink-500" },
-    { icon: Award, name: "Top 10", color: "from-purple-500 to-pink-500" },
+    { icon: Trophy, name: "Explorador", color: "bg-muted" },
+    { icon: Star, name: "Creador Pro", color: "bg-muted" },
+    { icon: Flame, name: "Racha 7 días", color: "bg-muted" },
+    { icon: Award, name: "Top 10", color: "bg-muted" },
   ];
 
   const recentMaps = [
@@ -42,21 +44,21 @@ export default function StudentDashboard() {
       title: "Sistema Solar",
       concepts: 24,
       lastEdit: "Hace 2 horas",
-      color: "from-blue-500 to-cyan-500",
+      color: "bg-primary-subtle text-primary",
     },
     {
       id: "2",
       title: "Revolución Francesa",
       concepts: 31,
       lastEdit: "Ayer",
-      color: "from-purple-500 to-pink-500",
+      color: "bg-muted text-muted-foreground",
     },
     {
       id: "3",
       title: "Ciclo del Agua",
       concepts: 18,
       lastEdit: "Hace 3 días",
-      color: "from-emerald-500 to-teal-500",
+      color: "bg-muted text-muted-foreground",
     },
   ];
 
@@ -67,33 +69,33 @@ export default function StudentDashboard() {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-950 via-purple-900 to-blue-950 pb-20 md:pb-0">
-      <nav className="p-4 backdrop-blur-sm bg-white/5 border-b border-white/10">
+    <div className="min-h-screen bg-background pb-20 md:pb-0 text-foreground">
+      <nav className="p-4 bg-background border-b border-border shadow-sm">
         <div className="container mx-auto flex justify-between items-center">
           <div className="flex items-center gap-2">
-            <Brain className="w-7 h-7 md:w-8 md:h-8 text-cyan-400" />
-            <span className="text-lg md:text-xl font-bold text-white">MindMap AI</span>
+            <Brain className="w-7 h-7 md:w-8 md:h-8 text-primary" />
+            <span className="text-lg md:text-xl font-semibold text-foreground tracking-tight">MindMap AI</span>
           </div>
-          <div className="hidden md:flex items-center gap-4">
+          <div className="hidden md:flex items-center gap-6">
             <Link
               to="/leaderboard"
-              className="flex items-center gap-2 text-gray-300 hover:text-white transition-colors"
+              className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors text-sm font-medium"
             >
-              <Trophy className="w-5 h-5" />
-              <span>Leaderboard</span>
+              <Trophy className="w-4 h-4" />
+              <span>Ranking</span>
             </Link>
             <Link
               to="/groups"
-              className="flex items-center gap-2 text-gray-300 hover:text-white transition-colors"
+              className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors text-sm font-medium"
             >
-              <Users className="w-5 h-5" />
+              <Users className="w-4 h-4" />
               <span>Grupos</span>
             </Link>
             <Link
               to="/settings"
-              className="text-gray-300 hover:text-white transition-colors"
+              className="text-muted-foreground hover:text-primary transition-colors"
             >
-              <Settings className="w-5 h-5" />
+              <Settings className="w-4 h-4" />
             </Link>
           </div>
         </div>
@@ -105,43 +107,43 @@ export default function StudentDashboard() {
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="p-4 md:p-6 rounded-2xl bg-gradient-to-br from-cyan-500/20 to-purple-500/20 backdrop-blur-md border border-white/10"
+              className="p-6 md:p-8 rounded-xl bg-card border border-border shadow-sm"
             >
-              <div className="flex items-center justify-between mb-4 md:mb-6">
-                <div className="flex items-center gap-3 md:gap-4">
-                  <div className="w-12 h-12 md:w-16 md:h-16 rounded-full bg-gradient-to-br from-cyan-500 to-purple-500 flex items-center justify-center text-white text-lg md:text-xl font-bold">
+              <div className="flex items-center justify-between mb-6 md:mb-8">
+                <div className="flex items-center gap-4 md:gap-5">
+                  <div className="w-14 h-14 md:w-16 md:h-16 rounded-full bg-primary-subtle flex items-center justify-center text-primary text-lg md:text-xl font-bold">
                     {user.avatar}
                   </div>
                   <div>
-                    <h2 className="text-xl md:text-2xl font-bold text-white">
+                    <h2 className="text-xl md:text-2xl font-bold text-foreground">
                       ¡Hola, {user.name}!
                     </h2>
-                    <p className="text-sm md:text-base text-gray-300">
+                    <p className="text-sm md:text-base text-muted-foreground font-medium">
                       Nivel {user.level} • Top #{user.rank}
                     </p>
                   </div>
                 </div>
                 <Link
                   to="/profile"
-                  className="hidden md:block px-4 py-2 rounded-lg bg-white/10 border border-white/20 text-white hover:bg-white/20 transition-all"
+                  className="hidden md:block px-4 py-2 rounded-md bg-card border border-border text-foreground hover:bg-muted transition-colors shadow-sm font-medium text-sm"
                 >
                   Ver perfil
                 </Link>
               </div>
 
               <div className="space-y-2">
-                <div className="flex justify-between text-sm text-gray-300">
+                <div className="flex justify-between text-sm text-muted-foreground font-medium">
                   <span>
                     {user.xp} / {user.xpToNext} XP
                   </span>
                   <span>Nivel {user.level + 1}</span>
                 </div>
                 <Progress.Root
-                  className="relative h-3 overflow-hidden rounded-full bg-white/10"
+                  className="relative h-2 overflow-hidden rounded-full bg-muted"
                   value={(user.xp / user.xpToNext) * 100}
                 >
                   <Progress.Indicator
-                    className="h-full bg-gradient-to-r from-cyan-500 to-purple-500 transition-all duration-500"
+                    className="h-full bg-primary transition-all duration-500 rounded-full"
                     style={{
                       transform: `translateX(-${100 - (user.xp / user.xpToNext) * 100}%)`,
                     }}
@@ -149,32 +151,32 @@ export default function StudentDashboard() {
                 </Progress.Root>
               </div>
 
-              <div className="flex gap-3 md:gap-4 mt-4 md:mt-6">
-                <div className="flex-1 p-3 md:p-4 rounded-xl bg-white/5 border border-white/10">
-                  <Flame className="w-5 h-5 md:w-6 md:h-6 text-orange-400 mb-2" />
-                  <div className="text-xl md:text-2xl font-bold text-white">
+              <div className="flex gap-4 md:gap-6 mt-6 md:mt-8">
+                <div className="flex-1 p-4 md:p-5 rounded-xl bg-muted border border-border">
+                  <Flame className="w-5 h-5 md:w-6 md:h-6 text-primary mb-2" />
+                  <div className="text-2xl md:text-3xl font-bold text-foreground tracking-tight">
                     {user.streak}
                   </div>
-                  <div className="text-xs md:text-sm text-gray-400">Días de racha</div>
+                  <div className="text-sm text-muted-foreground font-medium">Días de racha</div>
                 </div>
-                <div className="flex-1 p-3 md:p-4 rounded-xl bg-white/5 border border-white/10">
-                  <Trophy className="w-5 h-5 md:w-6 md:h-6 text-amber-400 mb-2" />
-                  <div className="text-xl md:text-2xl font-bold text-white">
+                <div className="flex-1 p-4 md:p-5 rounded-xl bg-muted border border-border">
+                  <Trophy className="w-5 h-5 md:w-6 md:h-6 text-primary mb-2" />
+                  <div className="text-2xl md:text-3xl font-bold text-foreground tracking-tight">
                     {user.totalPoints.toLocaleString()}
                   </div>
-                  <div className="text-xs md:text-sm text-gray-400">Puntos totales</div>
+                  <div className="text-sm text-muted-foreground font-medium">Puntos totales</div>
                 </div>
               </div>
             </motion.div>
 
-            <div className="p-6 rounded-2xl bg-white/5 backdrop-blur-md border border-white/10">
+            <div className="p-6 md:p-8 rounded-xl bg-card border border-border shadow-sm">
               <div className="flex justify-between items-center mb-6">
-                <h3 className="text-xl font-bold text-white">
+                <h3 className="text-lg md:text-xl font-bold text-foreground tracking-tight">
                   Tus mapas recientes
                 </h3>
                 <Link
                   to="/map/create"
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-cyan-500 to-purple-500 text-white hover:from-cyan-600 hover:to-purple-600 transition-all"
+                  className="flex items-center gap-2 px-4 py-2 rounded-md bg-primary text-primary-foreground hover:bg-primary-hover transition-colors font-medium text-sm shadow-sm"
                 >
                   <Plus className="w-4 h-4" />
                   Crear mapa
@@ -186,23 +188,23 @@ export default function StudentDashboard() {
                   <Link
                     key={map.id}
                     to={`/map/${map.id}`}
-                    className="block p-4 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all"
+                    className="block p-4 rounded-xl bg-card border border-border hover:border-primary/20 hover:bg-muted/50 transition-all"
                   >
                     <div className="flex items-center gap-4">
                       <div
-                        className={`w-12 h-12 rounded-lg bg-gradient-to-br ${map.color} flex items-center justify-center`}
+                        className={`w-12 h-12 rounded-lg ${map.color} flex items-center justify-center`}
                       >
-                        <Brain className="w-6 h-6 text-white" />
+                        <Brain className="w-6 h-6" />
                       </div>
                       <div className="flex-1">
-                        <h4 className="font-semibold text-white">
+                        <h4 className="font-semibold text-foreground">
                           {map.title}
                         </h4>
-                        <p className="text-sm text-gray-400">
+                        <p className="text-sm text-muted-foreground font-medium">
                           {map.concepts} conceptos • {map.lastEdit}
                         </p>
                       </div>
-                      <TrendingUp className="w-5 h-5 text-cyan-400" />
+                      <TrendingUp className="w-5 h-5 text-primary" />
                     </div>
                   </Link>
                 ))}
@@ -216,23 +218,23 @@ export default function StudentDashboard() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.1 }}
-                  className="p-4 rounded-xl bg-white/5 backdrop-blur-md border border-white/10"
+                  className="p-4 rounded-xl bg-card border border-border shadow-sm"
                 >
-                  <stat.icon className="w-6 h-6 text-cyan-400 mb-2" />
-                  <div className="text-2xl font-bold text-white">
+                  <stat.icon className="w-6 h-6 text-primary mb-2" />
+                  <div className="text-2xl font-bold text-foreground tracking-tight">
                     {stat.value}
                   </div>
-                  <div className="text-sm text-gray-400">{stat.label}</div>
+                  <div className="text-sm text-muted-foreground font-medium">{stat.label}</div>
                 </motion.div>
               ))}
             </div>
           </div>
 
           <div className="space-y-6">
-            <div className="p-6 rounded-2xl bg-white/5 backdrop-blur-md border border-white/10">
-              <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                <Award className="w-6 h-6 text-amber-400" />
-                Logros desbloqueados
+            <div className="p-6 rounded-2xl bg-card border border-border shadow-sm">
+              <h3 className="text-xl font-bold text-foreground mb-4 flex items-center gap-2 tracking-tight">
+                <Award className="w-6 h-6 text-primary" />
+                Logros destacados
               </h3>
               <div className="grid grid-cols-2 gap-3">
                 {badges.map((badge, i) => (
@@ -241,10 +243,10 @@ export default function StudentDashboard() {
                     initial={{ opacity: 0, scale: 0.8 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ delay: i * 0.1 }}
-                    className={`p-4 rounded-xl bg-gradient-to-br ${badge.color} flex flex-col items-center justify-center`}
+                    className={`p-4 rounded-xl ${badge.color} border border-border flex flex-col items-center justify-center`}
                   >
-                    <badge.icon className="w-8 h-8 text-white mb-2" />
-                    <span className="text-xs text-white text-center">
+                    <badge.icon className="w-8 h-8 text-primary mb-2" />
+                    <span className="text-xs font-semibold text-muted-foreground text-center">
                       {badge.name}
                     </span>
                   </motion.div>
@@ -252,29 +254,60 @@ export default function StudentDashboard() {
               </div>
               <Link
                 to="/achievements"
-                className="mt-4 block text-center text-cyan-400 hover:text-cyan-300 transition-colors"
+                className="mt-4 block text-center text-primary hover:text-primary-hover font-medium transition-colors text-sm"
               >
                 Ver todos los logros
               </Link>
             </div>
 
-            <div className="p-6 rounded-2xl bg-gradient-to-br from-amber-500/20 to-orange-500/20 backdrop-blur-md border border-amber-500/20">
-              <h3 className="text-xl font-bold text-white mb-4">
-                🎯 Desafío semanal
-              </h3>
-              <p className="text-gray-300 mb-4">
-                Crea 5 mapas conceptuales esta semana
-              </p>
-              <Progress.Root
-                className="relative h-3 overflow-hidden rounded-full bg-white/10"
-                value={60}
-              >
-                <Progress.Indicator
-                  className="h-full bg-gradient-to-r from-amber-500 to-orange-500 transition-all duration-500"
-                  style={{ transform: "translateX(-40%)" }}
-                />
-              </Progress.Root>
-              <p className="text-sm text-gray-400 mt-2">3 de 5 completados</p>
+            <div className="p-6 rounded-2xl bg-card border border-border shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-xl bg-primary-subtle flex items-center justify-center text-primary">
+                    <Target className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-foreground leading-none mb-1">
+                      Desafío semanal
+                    </h3>
+                    <p className="text-xs text-muted-foreground font-medium">
+                      Mantén tu ritmo de aprendizaje
+                    </p>
+                  </div>
+                </div>
+                <div className="px-3 py-1.5 rounded-lg bg-primary-subtle border border-primary/10 flex items-center gap-1.5">
+                  <Star className="w-3.5 h-3.5 text-primary fill-primary" />
+                  <span className="text-xs font-bold text-primary">+12 XP</span>
+                </div>
+              </div>
+
+              <div className="h-px bg-border/50 mb-6" />
+
+              <div className="space-y-4">
+                <p className="text-base font-bold text-foreground">
+                  Crea 5 mapas conceptuales esta semana
+                </p>
+                
+                <Progress.Root
+                  className="relative h-2 bg-muted overflow-hidden rounded-full"
+                  value={60}
+                >
+                  <Progress.Indicator
+                    className="h-full bg-primary transition-all duration-500 rounded-full"
+                    style={{ transform: "translateX(-40%)" }}
+                  />
+                </Progress.Root>
+                
+                <div className="flex justify-between items-center text-sm font-medium">
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <div className="w-5 h-5 rounded-full border border-primary/30 flex items-center justify-center text-primary">
+                      <Check className="w-3 h-3" />
+                    </div>
+                    <span>3 de 5 completados</span>
+                  </div>
+                  <span className="text-muted-foreground">60%</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>

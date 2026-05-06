@@ -12,7 +12,7 @@ export default function FloatingActionButton() {
     >
       <Link
         to="/map/create"
-        className="w-14 h-14 rounded-full bg-gradient-to-r from-cyan-500 to-purple-500 shadow-lg shadow-purple-500/50 flex items-center justify-center hover:shadow-xl hover:scale-110 transition-all"
+        className="w-14 h-14 rounded-full bg-purple-600 shadow-md shadow-purple-600/20 flex items-center justify-center hover:bg-purple-700 hover:scale-105 transition-all"
       >
         <Plus className="w-6 h-6 text-white" />
       </Link>

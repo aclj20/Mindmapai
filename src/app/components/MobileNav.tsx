@@ -14,7 +14,7 @@ export default function MobileNav() {
   ];
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-black/90 backdrop-blur-lg border-t border-white/10">
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-xl border-t border-border shadow-[0_-8px_30px_rgba(0,0,0,0.04)]">
       <div className="flex items-center justify-around px-2 py-2 safe-area-inset-bottom">
         {navItems.map((item) => {
           const isActive = location.pathname === item.path;
@@ -27,27 +27,27 @@ export default function MobileNav() {
               {isActive && (
                 <motion.div
                   layoutId="activeTab"
-                  className="absolute inset-0 bg-white/10 rounded-xl"
+                  className="absolute inset-0 bg-primary-subtle rounded-xl"
                   transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
                 />
               )}
               <div className="relative">
                 {item.highlight ? (
-                  <div className="w-12 h-12 rounded-full bg-gradient-to-r from-cyan-500 to-purple-500 flex items-center justify-center -mt-6 shadow-lg shadow-purple-500/50">
-                    <item.icon className="w-6 h-6 text-white" />
+                  <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center -mt-8 shadow-xl shadow-primary/20 border border-primary/50 ring-4 ring-background">
+                    <item.icon className="w-6 h-6 text-primary-foreground" />
                   </div>
                 ) : (
                   <item.icon
                     className={`w-6 h-6 transition-colors ${
-                      isActive ? "text-cyan-400" : "text-gray-500"
+                      isActive ? "text-primary" : "text-muted-foreground"
                     }`}
                   />
                 )}
               </div>
               {!item.highlight && (
                 <span
-                  className={`text-[10px] font-medium transition-colors ${
-                    isActive ? "text-cyan-400" : "text-gray-500"
+                  className={`text-[10px] font-bold transition-colors uppercase tracking-tight ${
+                    isActive ? "text-primary" : "text-muted-foreground"
                   }`}
                 >
                   {item.label}
