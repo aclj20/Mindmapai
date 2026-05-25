@@ -3,18 +3,63 @@ import { useNavigate } from "react-router";
 import { Brain, GraduationCap, User } from "lucide-react";
 import { motion } from "motion/react";
 
+const API_URL = "http://localhost:3001/api";
+
 export default function LoginPage() {
   const [isLogin, setIsLogin] = useState(true);
   const [role, setRole] = useState<"student" | "teacher">("student");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (role === "student") {
-      navigate("/dashboard/student");
-    } else {
-      navigate("/dashboard/teacher");
+    setError("");
+    setLoading(true);
+
+    try {
+      const endpoint = isLogin ? "/auth/login" : "/auth/register";
+      const body = isLogin
+        ? { email, password }
+        : { name, email, password, role };
+
+      const res = await fetch(`${API_URL}${endpoint}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.message || "Ocurrió un error");
+        return;
+      }
+
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("user", JSON.stringify(data.user));
+
+      if (data.user.role === "student") {
+        navigate("/dashboard/student");
+      } else {
+        navigate("/dashboard/teacher");
+      }
+    } catch {
+      setError("No se pudo conectar al servidor. ¿Está el backend corriendo?");
+    } finally {
+      setLoading(false);
     }
+  };
+
+  const switchMode = () => {
+    setIsLogin(!isLogin);
+    setError("");
+    setName("");
+    setEmail("");
+    setPassword("");
   };
 
   return (
@@ -26,7 +71,7 @@ export default function LoginPage() {
       >
         <div className="text-center mb-8">
           <div className="w-16 h-16 rounded-2xl bg-primary-subtle flex items-center justify-center mx-auto mb-4 border border-primary/10">
-             <Brain className="w-8 h-8 text-primary" />
+            <Brain className="w-8 h-8 text-primary" />
           </div>
           <h1 className="text-3xl font-bold text-foreground mb-2 tracking-tight">
             {isLogin ? "Bienvenido" : "Crea tu cuenta"}
@@ -55,8 +100,14 @@ export default function LoginPage() {
                         : "border-border bg-muted/50 hover:bg-muted"
                     }`}
                   >
-                    <GraduationCap className={`w-6 h-6 ${role === "student" ? "text-primary" : "text-muted-foreground"}`} />
-                    <div className={`text-sm font-bold ${role === "student" ? "text-primary" : "text-muted-foreground"}`}>Estudiante</div>
+                    <GraduationCap
+                      className={`w-6 h-6 ${role === "student" ? "text-primary" : "text-muted-foreground"}`}
+                    />
+                    <div
+                      className={`text-sm font-bold ${role === "student" ? "text-primary" : "text-muted-foreground"}`}
+                    >
+                      Estudiante
+                    </div>
                   </button>
                   <button
                     type="button"
@@ -67,18 +118,44 @@ export default function LoginPage() {
                         : "border-border bg-muted/50 hover:bg-muted"
                     }`}
                   >
-                    <User className={`w-6 h-6 ${role === "teacher" ? "text-primary" : "text-muted-foreground"}`} />
-                    <div className={`text-sm font-bold ${role === "teacher" ? "text-primary" : "text-muted-foreground"}`}>Docente</div>
+                    <User
+                      className={`w-6 h-6 ${role === "teacher" ? "text-primary" : "text-muted-foreground"}`}
+                    />
+                    <div
+                      className={`text-sm font-bold ${role === "teacher" ? "text-primary" : "text-muted-foreground"}`}
+                    >
+                      Docente
+                    </div>
                   </button>
                 </div>
               </div>
             )}
 
+            {!isLogin && (
+              <div>
+                <label className="block text-sm font-semibold text-foreground mb-1.5">
+                  Nombre completo
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-lg bg-muted border border-border text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all shadow-sm text-sm"
+                  placeholder="Tu nombre completo"
+                />
+              </div>
+            )}
+
             <div>
-              <label className="block text-sm font-semibold text-foreground mb-1.5">Email</label>
+              <label className="block text-sm font-semibold text-foreground mb-1.5">
+                Email
+              </label>
               <input
                 type="email"
                 required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 className="w-full px-4 py-2.5 rounded-lg bg-muted border border-border text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all shadow-sm text-sm"
                 placeholder="tu@email.com"
               />
@@ -91,37 +168,36 @@ export default function LoginPage() {
               <input
                 type="password"
                 required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
                 className="w-full px-4 py-2.5 rounded-lg bg-muted border border-border text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all shadow-sm text-sm"
                 placeholder="••••••••"
               />
             </div>
 
-            {!isLogin && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Nombre completo
-                </label>
-                <input
-                  type="text"
-                  required
-                  className="w-full px-4 py-2.5 rounded-md bg-white border border-gray-300 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all shadow-sm"
-                  placeholder="Tu nombre completo"
-                />
-              </div>
+            {error && (
+              <p className="text-sm text-red-500 bg-red-50 border border-red-200 rounded-lg px-4 py-2.5">
+                {error}
+              </p>
             )}
 
             <button
               type="submit"
-              className="w-full py-2.5 mt-2 rounded-md bg-purple-600 hover:bg-purple-700 text-white font-medium transition-colors shadow-sm"
+              disabled={loading}
+              className="w-full py-2.5 mt-2 rounded-xl bg-primary hover:bg-primary/90 disabled:opacity-60 disabled:cursor-not-allowed text-primary-foreground font-semibold transition-colors shadow-sm"
             >
-              {isLogin ? "Iniciar sesión" : "Crear cuenta"}
+              {loading
+                ? "Cargando..."
+                : isLogin
+                  ? "Iniciar sesión"
+                  : "Crear cuenta"}
             </button>
           </form>
 
           <div className="mt-6 text-center">
             <button
-              onClick={() => setIsLogin(!isLogin)}
-              className="text-sm font-medium text-purple-600 hover:text-purple-700 transition-colors"
+              onClick={switchMode}
+              className="text-sm font-medium text-primary hover:text-primary/80 transition-colors"
             >
               {isLogin
                 ? "¿No tienes cuenta? Regístrate"

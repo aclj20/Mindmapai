@@ -1,4 +1,5 @@
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
+import { useEffect, useState } from "react";
 import {
   Brain,
   Trophy,
@@ -7,59 +8,83 @@ import {
   Flame,
   Award,
   Plus,
-  BarChart3,
   Users,
   Settings,
   LogOut,
-  Menu,
   Target,
   Check,
 } from "lucide-react";
 import { motion } from "motion/react";
 import * as Progress from "@radix-ui/react-progress";
 import MobileNav from "./MobileNav";
+import { getAuthUser, getAvatarInitials, getToken, logout } from "../hooks/useAuth";
+
+const API_URL = "http://localhost:3001/api";
+
+interface RecentMap {
+  id: number;
+  title: string;
+  node_count: number;
+  updated_at: string;
+}
+
+function formatRelativeTime(dateStr: string): string {
+  const date = new Date(dateStr + "Z");
+  const diff = Date.now() - date.getTime();
+  const minutes = Math.floor(diff / 60000);
+  const hours = Math.floor(diff / 3600000);
+  const days = Math.floor(diff / 86400000);
+  if (minutes < 60) return `Hace ${minutes} min`;
+  if (hours < 24) return `Hace ${hours} hora${hours > 1 ? "s" : ""}`;
+  if (days === 1) return "Ayer";
+  if (days < 7) return `Hace ${days} días`;
+  return `Hace ${Math.floor(days / 7)} semana${Math.floor(days / 7) > 1 ? "s" : ""}`;
+}
+
+const MAP_COLORS = [
+  "bg-primary-subtle text-primary",
+  "bg-muted text-muted-foreground",
+  "bg-muted text-muted-foreground",
+];
 
 export default function StudentDashboard() {
+  const navigate = useNavigate();
+  const authUser = getAuthUser();
+
+  const [recentMaps, setRecentMaps] = useState<RecentMap[]>([]);
+  const [mapsLoading, setMapsLoading] = useState(true);
+
+  useEffect(() => {
+    fetch(`${API_URL}/maps/my`, {
+      headers: { Authorization: `Bearer ${getToken()}` },
+    })
+      .then((r) => r.json())
+      .then((data: RecentMap[]) => setRecentMaps(data.slice(0, 3)))
+      .catch(() => {})
+      .finally(() => setMapsLoading(false));
+  }, []);
+
   const user = {
-    name: "Alex García",
-    avatar: "AG",
-    level: 12,
-    xp: 2450,
-    xpToNext: 3000,
-    streak: 7,
-    totalPoints: 15240,
-    rank: 3,
+    name: authUser?.name ?? "Estudiante",
+    avatar: authUser ? getAvatarInitials(authUser.name) : "?",
+    level: 1,
+    xp: 0,
+    xpToNext: 1000,
+    streak: 0,
+    totalPoints: 0,
+    rank: "-",
   };
+
+  function handleLogout() {
+    logout();
+    navigate("/login");
+  }
 
   const badges = [
     { icon: Trophy, name: "Explorador", color: "bg-muted" },
     { icon: Star, name: "Creador Pro", color: "bg-muted" },
     { icon: Flame, name: "Racha 7 días", color: "bg-muted" },
     { icon: Award, name: "Top 10", color: "bg-muted" },
-  ];
-
-  const recentMaps = [
-    {
-      id: "1",
-      title: "Sistema Solar",
-      concepts: 24,
-      lastEdit: "Hace 2 horas",
-      color: "bg-primary-subtle text-primary",
-    },
-    {
-      id: "2",
-      title: "Revolución Francesa",
-      concepts: 31,
-      lastEdit: "Ayer",
-      color: "bg-muted text-muted-foreground",
-    },
-    {
-      id: "3",
-      title: "Ciclo del Agua",
-      concepts: 18,
-      lastEdit: "Hace 3 días",
-      color: "bg-muted text-muted-foreground",
-    },
   ];
 
   const stats = [
@@ -97,6 +122,13 @@ export default function StudentDashboard() {
             >
               <Settings className="w-4 h-4" />
             </Link>
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-2 text-muted-foreground hover:text-destructive transition-colors text-sm font-medium"
+            >
+              <LogOut className="w-4 h-4" />
+              <span>Salir</span>
+            </button>
           </div>
         </div>
       </nav>
@@ -121,6 +153,7 @@ export default function StudentDashboard() {
                     <p className="text-sm md:text-base text-muted-foreground font-medium">
                       Nivel {user.level} • Top #{user.rank}
                     </p>
+                    <p className="text-xs text-muted-foreground">{authUser?.email}</p>
                   </div>
                 </div>
                 <Link
@@ -184,30 +217,38 @@ export default function StudentDashboard() {
               </div>
 
               <div className="space-y-4">
-                {recentMaps.map((map) => (
-                  <Link
-                    key={map.id}
-                    to={`/map/${map.id}`}
-                    className="block p-4 rounded-xl bg-card border border-border hover:border-primary/20 hover:bg-muted/50 transition-all"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div
-                        className={`w-12 h-12 rounded-lg ${map.color} flex items-center justify-center`}
-                      >
-                        <Brain className="w-6 h-6" />
+                {mapsLoading ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">Cargando mapas...</p>
+                ) : recentMaps.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    Aún no tienes mapas. ¡Crea tu primero!
+                  </p>
+                ) : (
+                  recentMaps.map((map, i) => (
+                    <Link
+                      key={map.id}
+                      to={`/map/${map.id}`}
+                      className="block p-4 rounded-xl bg-card border border-border hover:border-primary/20 hover:bg-muted/50 transition-all"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div
+                          className={`w-12 h-12 rounded-lg ${MAP_COLORS[i] ?? MAP_COLORS[1]} flex items-center justify-center`}
+                        >
+                          <Brain className="w-6 h-6" />
+                        </div>
+                        <div className="flex-1">
+                          <h4 className="font-semibold text-foreground">
+                            {map.title}
+                          </h4>
+                          <p className="text-sm text-muted-foreground font-medium">
+                            {map.node_count} conceptos • {formatRelativeTime(map.updated_at)}
+                          </p>
+                        </div>
+                        <TrendingUp className="w-5 h-5 text-primary" />
                       </div>
-                      <div className="flex-1">
-                        <h4 className="font-semibold text-foreground">
-                          {map.title}
-                        </h4>
-                        <p className="text-sm text-muted-foreground font-medium">
-                          {map.concepts} conceptos • {map.lastEdit}
-                        </p>
-                      </div>
-                      <TrendingUp className="w-5 h-5 text-primary" />
-                    </div>
-                  </Link>
-                ))}
+                    </Link>
+                  ))
+                )}
               </div>
             </div>
 
