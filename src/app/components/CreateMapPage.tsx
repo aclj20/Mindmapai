@@ -11,41 +11,72 @@ import {
 import { motion } from "motion/react";
 import * as Tabs from "@radix-ui/react-tabs";
 import MobileNav from "./MobileNav";
+import { getToken } from "../hooks/useAuth";
+
+const API_URL = "http://localhost:3001/api";
+
+const STEPS = [
+  { at: 10, label: "Iniciando motor de IA..." },
+  { at: 30, label: "Analizando texto y extrayendo entidades..." },
+  { at: 55, label: "Identificando conceptos clave y jerarquías..." },
+  { at: 80, label: "Estableciendo relaciones semánticas entre nodos..." },
+];
 
 export default function CreateMapPage() {
   const navigate = useNavigate();
+  const [text, setText] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
   const [currentStep, setCurrentStep] = useState("");
+  const [error, setError] = useState("");
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
+    if (!text.trim()) return;
+
     setIsGenerating(true);
+    setError("");
     setProgress(0);
-    setCurrentStep("Iniciando motor de IA...");
+    setCurrentStep(STEPS[0].label);
 
-    setTimeout(() => {
-      setProgress(15);
-      setCurrentStep("Analizando texto y extrayendo entidades...");
-    }, 800);
+    // Animación de progreso mientras espera la respuesta
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    STEPS.forEach((s, i) => {
+      if (i === 0) return;
+      timers.push(
+        setTimeout(() => {
+          setProgress(s.at);
+          setCurrentStep(s.label);
+        }, i * 1200)
+      );
+    });
 
-    setTimeout(() => {
-      setProgress(40);
-      setCurrentStep("Identificando conceptos clave y jerarquías...");
-    }, 1800);
+    try {
+      const res = await fetch(`${API_URL}/maps/generate`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${getToken()}`,
+        },
+        body: JSON.stringify({ text }),
+      });
 
-    setTimeout(() => {
-      setProgress(75);
-      setCurrentStep("Estableciendo relaciones semánticas entre nodos...");
-    }, 2800);
+      timers.forEach(clearTimeout);
 
-    setTimeout(() => {
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || "Error al generar el mapa");
+      }
+
+      const data = await res.json();
+
       setProgress(100);
       setCurrentStep("¡Mapa conceptual generado con éxito!");
-    }, 3800);
-
-    setTimeout(() => {
-      navigate("/map/1");
-    }, 4500);
+      setTimeout(() => navigate(`/map/${data.public_id}`), 800);
+    } catch (err: unknown) {
+      timers.forEach(clearTimeout);
+      setIsGenerating(false);
+      setError(err instanceof Error ? err.message : "Error desconocido");
+    }
   };
 
   return (
@@ -108,16 +139,21 @@ export default function CreateMapPage() {
               <Tabs.Content value="text">
                 <div className="p-6 rounded-xl bg-card border border-border shadow-sm">
                   <label className="block text-foreground font-medium mb-2">
-                    Pega tu texto aquí
+                    Pega tus apuntes aquí
                   </label>
                   <textarea
+                    value={text}
+                    onChange={(e) => setText(e.target.value)}
                     className="w-full h-64 p-4 rounded-md bg-input-background border border-border text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
                     placeholder="Escribe o pega el texto que quieres convertir en mapa conceptual..."
-                    defaultValue="El Sistema Solar es el sistema planetario que orbita alrededor del Sol. Está compuesto por ocho planetas principales: Mercurio, Venus, Tierra, Marte, Júpiter, Saturno, Urano y Neptuno. Los cuatro planetas interiores (Mercurio, Venus, Tierra y Marte) son rocosos y más pequeños, mientras que los cuatro exteriores (Júpiter, Saturno, Urano y Neptuno) son gigantes gaseosos. El Sol es una estrella de tipo G que contiene el 99.86% de la masa del sistema solar."
                   />
+                  {error && (
+                    <p className="mt-2 text-sm text-destructive font-medium">{error}</p>
+                  )}
                   <button
                     onClick={handleGenerate}
-                    className="mt-4 w-full py-3 rounded-md bg-primary hover:bg-primary-hover text-primary-foreground font-medium transition-colors shadow-sm flex items-center justify-center gap-2"
+                    disabled={!text.trim()}
+                    className="mt-4 w-full py-3 rounded-md bg-primary hover:bg-primary-hover text-primary-foreground font-medium transition-colors shadow-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Sparkles className="w-5 h-5" />
                     Generar mapa con IA
@@ -137,12 +173,7 @@ export default function CreateMapPage() {
                     <p className="text-muted-foreground mb-6 text-sm">
                       PDF, DOCX, TXT (máx. 10MB)
                     </p>
-                    <button 
-                      onClick={handleGenerate}
-                      className="px-6 py-2.5 rounded-md bg-card border border-border text-foreground font-medium transition-colors shadow-sm hover:bg-muted"
-                    >
-                      Seleccionar archivo
-                    </button>
+                    <p className="text-sm text-muted-foreground">Próximamente</p>
                   </div>
                 </div>
               </Tabs.Content>
@@ -159,17 +190,11 @@ export default function CreateMapPage() {
                     <p className="text-muted-foreground mb-6 text-sm">
                       Habla sobre el tema y nosotros extraeremos los conceptos
                     </p>
-                    <button 
-                      onClick={handleGenerate}
-                      className="px-6 py-2.5 rounded-md bg-primary hover:bg-primary-hover text-primary-foreground font-medium transition-colors shadow-sm"
-                    >
-                      🎙️ Iniciar grabación
-                    </button>
+                    <p className="text-sm text-muted-foreground">Próximamente</p>
                   </div>
                 </div>
               </Tabs.Content>
             </Tabs.Root>
-
           </motion.div>
         ) : (
           <motion.div
@@ -199,19 +224,17 @@ export default function CreateMapPage() {
             </div>
 
             <div className="mt-12 flex justify-center gap-8">
-              {[
-                "Analizando",
-                "Conceptos",
-                "Relaciones",
-              ].map((step, i) => (
+              {["Analizando", "Conceptos", "Relaciones"].map((step, i) => (
                 <div
                   key={i}
-                  className={`flex items-center gap-2 ${i * 33 < progress ? "text-primary" : "text-muted-foreground"
-                    }`}
+                  className={`flex items-center gap-2 ${
+                    i * 33 < progress ? "text-primary" : "text-muted-foreground"
+                  }`}
                 >
                   <div
-                    className={`w-2 h-2 rounded-full ${i * 33 < progress ? "bg-primary" : "bg-border"
-                      }`}
+                    className={`w-2 h-2 rounded-full ${
+                      i * 33 < progress ? "bg-primary" : "bg-border"
+                    }`}
                   />
                   <span className="text-sm font-medium">{step}</span>
                 </div>

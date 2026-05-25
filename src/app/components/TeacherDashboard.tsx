@@ -1,14 +1,13 @@
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 import {
   Brain,
   Users,
   TrendingUp,
   Trophy,
-  BookOpen,
   Settings,
   Plus,
-  BarChart3,
   Eye,
+  LogOut,
 } from "lucide-react";
 import { motion } from "motion/react";
 import {
@@ -20,8 +19,16 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import { getAuthUser, getAvatarInitials, logout } from "../hooks/useAuth";
 
 export default function TeacherDashboard() {
+  const navigate = useNavigate();
+  const authUser = getAuthUser();
+
+  function handleLogout() {
+    logout();
+    navigate("/login");
+  }
   const classes = [
     { id: "1", name: "4to A - Ciencias", students: 28, activity: 94 },
     { id: "2", name: "4to B - Ciencias", students: 26, activity: 87 },
@@ -67,13 +74,20 @@ export default function TeacherDashboard() {
     <div className="min-h-screen bg-gray-50 pb-20 md:pb-0 font-sans">
       <nav className="p-4 bg-white border-b border-gray-200 shadow-sm sticky top-0 z-10">
         <div className="container mx-auto flex justify-between items-center">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center border border-purple-200">
               <Brain className="w-6 h-6 text-purple-600" />
             </div>
-            <span className="text-xl font-bold text-gray-900 tracking-tight">
-              MindMap AI <span className="text-purple-600 font-medium">Docente</span>
-            </span>
+            <div>
+              <span className="text-xl font-bold text-gray-900 tracking-tight">
+                MindMap AI <span className="text-purple-600 font-medium">Docente</span>
+              </span>
+              {authUser && (
+                <p className="text-xs text-gray-500 leading-none mt-0.5">
+                  {authUser.name} · {authUser.email}
+                </p>
+              )}
+            </div>
           </div>
           <div className="flex items-center gap-6">
             <Link
@@ -96,6 +110,13 @@ export default function TeacherDashboard() {
             >
               <Settings className="w-5 h-5" />
             </Link>
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-2 text-gray-600 hover:text-red-600 transition-colors font-medium text-sm"
+            >
+              <LogOut className="w-5 h-5" />
+              <span className="hidden md:inline">Salir</span>
+            </button>
           </div>
         </div>
       </nav>
@@ -107,7 +128,7 @@ export default function TeacherDashboard() {
           className="mb-8"
         >
           <h1 className="text-3xl font-bold text-gray-900 mb-2 tracking-tight">
-            Panel de Docente
+            ¡Hola, {authUser?.name ?? "Docente"}!
           </h1>
           <p className="text-gray-500 font-medium">
             Supervisa el progreso y actividad de tus estudiantes

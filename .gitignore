@@ -1,1 +1,8 @@
 node_modules
+
+# Variables de entorno
+backend/.env
+
+
+
+

@@ -1,4 +1,7 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { getToken } from "../hooks/useAuth";
+
+const API_URL = "http://localhost:3001/api";
 import { Link, useParams } from "react-router";
 import {
   ZoomIn,
@@ -64,63 +67,94 @@ export default function ConceptMapView() {
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
   const [liked, setLiked] = useState(false);
-  const [likeCount, setLikeCount] = useState(34);
+  const [likeCount, setLikeCount] = useState(0);
   const [showExportModal, setShowExportModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
-  const [isPublic, setIsPublic] = useState(true);
+  const [isPublic, setIsPublic] = useState(false);
   const [showComments, setShowComments] = useState(false);
   const [newComment, setNewComment] = useState("");
-  const [comments, setComments] = useState([
-    { id: 1, user: "María López", text: "Excelente estructura, muy clara.", time: "hace 2h" },
-    { id: 2, user: "Diego Ramírez", text: "Me ayudó mucho para estudiar.", time: "hace 1h" }
-  ]);
+  const [comments, setComments] = useState<{ id: number; user: string; text: string; time: string }[]>([]);
   const svgRef = useRef<SVGSVGElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-
   const [activeTab, setActiveTab] = useState<"resumen" | "notas">("resumen");
   const [personalNotes, setPersonalNotes] = useState("");
-  
-  const nodes: Node[] = [
-    {
-      id: "1", x: 400, y: 300, label: "Sistema Solar", category: "main", connections: ["2", "3", "4", "11", "12"],
-      description: "Es el sistema planetario en el que se encuentran la Tierra y otros objetos astronómicos que giran en órbitas elípticas alrededor de una única estrella, el Sol.",
-      tags: ["universo", "ciencia"]
-    },
-    {
-      id: "2", x: 220, y: 400, label: "Planetas Interiores", category: "category", connections: ["5", "6", "7"],
-      description: "Planetas rocosos cercanos al Sol."
-    },
-    {
-      id: "3", x: 580, y: 400, label: "Planetas Exteriores", category: "category", connections: ["8", "9", "10"],
-      description: "Gigantes gaseosos y helados."
-    },
-    {
-      id: "4", x: 400, y: 150, label: "Sol", category: "concept", connections: [],
-      description: "Nuestra estrella, fuente de luz y energía.",
-      stats: { "Tipo": "Estrella G2V", "Diámetro": "1.39M km", "Temperatura": "5,500 °C" }
-    },
-    {
-      id: "7", x: 340, y: 520, label: "Tierra", category: "concept", connections: [],
-      description: "La Tierra es el tercer planeta desde el Sol y el único lugar conocido que alberga vida.",
-      image: "https://images.unsplash.com/photo-1614730321146-b6fa6a46bcb4?auto=format&fit=crop&q=80&w=800",
-      stats: { "Tipo": "Terrestre", "Diámetro": "12,742 km", "Lunas": "1", "Temp. Media": "15 °C" },
-      tags: ["vida", "hogar"]
-    },
-    {
-      id: "11", x: 200, y: 700, label: "Características del Sistema Solar", category: "concept", connections: [],
-      description: "8 planetas, 1 estrella, unido por gravedad.", isSticky: true, color: "#f0fdf4"
-    },
-    {
-      id: "12", x: 500, y: 700, label: "Datos Curiosos", category: "concept", connections: [],
-      description: "Un día en Venus es más largo que su año.", isSticky: true, color: "#fffbeb"
-    },
-    { id: "5", x: 100, y: 520, label: "Mercurio", category: "concept", connections: [] },
-    { id: "6", x: 220, y: 540, label: "Venus", category: "concept", connections: [] },
-    { id: "8", x: 460, y: 540, label: "Júpiter", category: "concept", connections: [] },
-    { id: "9", x: 580, y: 520, label: "Saturno", category: "concept", connections: [] },
-    { id: "10", x: 700, y: 540, label: "Urano", category: "concept", connections: [] },
-  ];
+
+  const [nodes, setNodes] = useState<Node[]>([]);
+  const [mapTitle, setMapTitle] = useState("Cargando...");
+  const [loading, setLoading] = useState(true);
+  const [isPrivate, setIsPrivate] = useState(false);
+
+  useEffect(() => {
+    if (!id) return;
+    fetch(`${API_URL}/maps/${id}`, {
+      headers: { Authorization: `Bearer ${getToken()}` },
+    })
+      .then(async (r) => {
+        if (r.status === 403) { setIsPrivate(true); setLoading(false); return null; }
+        return r.json();
+      })
+      .then((data) => {
+        if (!data) return;
+        setMapTitle(data.title ?? "Mapa");
+        setIsPublic(!!data.is_public);
+        setLiked(!!data.liked);
+        setLikeCount(data.like_count ?? 0);
+
+        // Construir mapa de nodos con conexiones vacías
+        const nodeMap = new Map<number, Node>(
+          (data.nodes ?? []).map((n: { id: number; x: number; y: number; label: string; category: string; description?: string; tags?: string[]; stats?: Record<string,string>; is_sticky?: boolean; color?: string }) => [
+            n.id,
+            {
+              id: String(n.id),
+              x: n.x,
+              y: n.y,
+              label: n.label,
+              category: n.category,
+              description: n.description,
+              tags: n.tags ?? [],
+              stats: n.stats ?? {},
+              isSticky: n.is_sticky,
+              color: n.color,
+              connections: [],
+            },
+          ])
+        );
+
+        // Poblar conexiones
+        for (const c of (data.connections ?? [])) {
+          const from = nodeMap.get(c.from_node_id);
+          if (from) from.connections.push(String(c.to_node_id));
+        }
+
+        setNodes(Array.from(nodeMap.values()));
+      })
+      .catch(() => setMapTitle("Error al cargar"))
+      .finally(() => setLoading(false));
+  }, [id]);
+
+  const fetchComments = useCallback(() => {
+    if (!id) return;
+    fetch(`${API_URL}/maps/${id}/comments`, {
+      headers: { Authorization: `Bearer ${getToken()}` },
+    })
+      .then((r) => r.json())
+      .then((data) =>
+        setComments(
+          data.map((c: { id: number; user: string; text: string; created_at: string }) => ({
+            id: c.id,
+            user: c.user,
+            text: c.text,
+            time: c.created_at,
+          }))
+        )
+      )
+      .catch(() => {});
+  }, [id]);
+
+  useEffect(() => {
+    if (showComments) fetchComments();
+  }, [showComments, fetchComments]);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).tagName === "svg") {
@@ -140,11 +174,17 @@ export default function ConceptMapView() {
   };
 
   const handleLike = () => {
-    setLiked(!liked);
-    setLikeCount(liked ? likeCount - 1 : likeCount + 1);
-    if (!liked) {
-      toast.success("¡Te gustó este mapa!");
-    }
+    fetch(`${API_URL}/maps/${id}/like`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${getToken()}` },
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        setLiked(data.liked);
+        setLikeCount(data.like_count);
+        if (data.liked) toast.success("¡Te gustó este mapa!");
+      })
+      .catch(() => {});
   };
 
   const handleExport = (format: string) => {
@@ -165,11 +205,18 @@ export default function ConceptMapView() {
   const handleAddComment = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newComment.trim()) return;
-    setComments([
-      ...comments,
-      { id: Date.now(), user: "Tú", text: newComment, time: "ahora" }
-    ]);
+    const text = newComment.trim();
     setNewComment("");
+    fetch(`${API_URL}/maps/${id}/comments`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${getToken()}`,
+      },
+      body: JSON.stringify({ text }),
+    })
+      .then(() => fetchComments())
+      .catch(() => {});
   };
 
   const getNodeWidth = (label: string, category: string) => {
@@ -202,14 +249,65 @@ export default function ConceptMapView() {
     "https://api.dicebear.com/7.x/avataaars/svg?seed=James"
   ];
 
+  if (loading) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-background text-muted-foreground">
+        Cargando mapa...
+      </div>
+    );
+  }
+
+  if (isPrivate) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-background px-4">
+        <motion.div
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="max-w-md w-full text-center space-y-6 p-10 rounded-2xl bg-card border border-border shadow-xl"
+        >
+          <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto">
+            <Lock className="w-8 h-8 text-muted-foreground" />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-foreground mb-2">Este mapa es privado</h2>
+            <p className="text-sm text-muted-foreground">
+              Solo el dueño puede ver este mapa. Puedes solicitar acceso y el dueño recibirá tu petición.
+            </p>
+          </div>
+          <div className="flex flex-col gap-3">
+            <button
+              onClick={() => toast.success("Solicitud enviada al dueño del mapa")}
+              className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-semibold hover:bg-primary-hover transition-colors"
+            >
+              Solicitar acceso
+            </button>
+            <button
+              onClick={() => window.history.back()}
+              className="w-full py-3 rounded-xl border border-border text-muted-foreground font-medium hover:bg-muted transition-colors"
+            >
+              Volver
+            </button>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
+
   return (
     <>
       <div className="h-screen bg-background flex flex-col font-sans overflow-hidden text-foreground">
       <nav className="px-6 py-4 bg-background border-b border-border flex items-center justify-between z-20 shadow-sm">
         <div className="flex items-center gap-6">
+          <Link
+            to="/dashboard/student"
+            className="w-10 h-10 rounded-full border border-border bg-card flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            aria-label="Volver al dashboard"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </Link>
           <div className="flex items-center gap-3">
              <div className="bg-muted px-3 py-1.5 rounded-lg border border-border flex items-center gap-2">
-                <span className="text-sm font-bold">Sistema Solar</span>
+                <span className="text-sm font-bold">{mapTitle}</span>
                 <MoreHorizontal className="w-4 h-4 text-muted-foreground" />
              </div>
              <div className="flex bg-muted p-1 rounded-lg border border-border">
@@ -236,8 +334,22 @@ export default function ConceptMapView() {
           <div className="flex items-center gap-2 px-1 py-1 bg-muted rounded-xl border border-border">
             <button
               onClick={() => {
-                setIsPublic(!isPublic);
-                toast.success(isPublic ? "Mapa ahora es privado" : "Mapa ahora es público");
+                const next = !isPublic;
+                fetch(`${API_URL}/maps/${id}`, {
+                  method: "PUT",
+                  headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${getToken()}`,
+                  },
+                  body: JSON.stringify({ is_public: next }),
+                })
+                  .then((r) => {
+                    if (r.ok) {
+                      setIsPublic(next);
+                      toast.success(next ? "Mapa ahora es público" : "Mapa ahora es privado");
+                    }
+                  })
+                  .catch(() => toast.error("No se pudo cambiar la visibilidad"));
               }}
               className={`flex items-center justify-center w-9 h-9 rounded-lg transition-all ${
                 isPublic ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-card"
@@ -670,7 +782,7 @@ export default function ConceptMapView() {
                   <div className="text-foreground font-semibold group-hover:text-primary transition-colors">Copiar enlace</div>
                 </div>
               </button>
-              {[
+{/*               {[
                 { name: "Twitter", icon: Twitter },
                 { name: "Facebook", icon: Facebook },
               ].map((platform) => (
@@ -688,7 +800,7 @@ export default function ConceptMapView() {
                     </div>
                   </div>
                 </button>
-              ))}
+              ))} */}
             </div>
           </Dialog.Content>
         </Dialog.Portal>
