@@ -36,9 +36,10 @@ const db = {
       _db = new SQL.Database(buf);
     } else {
       _db = new SQL.Database();
-      createSchema();
-      flushSave();
     }
+
+    createSchema();
+    flushSave();
 
     _db.run('PRAGMA foreign_keys = ON');
     console.log('Base de datos lista');

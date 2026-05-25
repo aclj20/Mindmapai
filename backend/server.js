@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const db = require('./db');
@@ -15,6 +16,7 @@ app.use('/api/groups',       require('./routes/groups'));
 app.use('/api/leaderboard',  require('./routes/leaderboard'));
 app.use('/api/achievements', require('./routes/achievements'));
 app.use('/api/sessions',     require('./routes/sessions'));
+app.use('/api/maps/generate', require('./routes/generate'));
 
 app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
 
