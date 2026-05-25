@@ -1,4 +1,11 @@
 const db = require('../db');
+const { makeShortId } = require('../utils/shortId');
+
+function uniquePublicId() {
+  let pid;
+  do { pid = makeShortId(); } while (db.get('SELECT id FROM maps WHERE public_id = ?', [pid]));
+  return pid;
+}
 
 const MAPS = [
   {
@@ -92,9 +99,9 @@ async function main() {
 
     // Crear mapa
     const { lastInsertRowid: mapId } = db.run(
-      `INSERT INTO maps (title, owner_id, is_public, node_count, updated_at)
-       VALUES (?, ?, 0, ?, datetime('now', '-' || ? || ' hours'))`,
-      [map.title, user.id, map.nodes.length, Math.floor(Math.random() * 72)]
+      `INSERT INTO maps (title, owner_id, is_public, public_id, node_count, updated_at)
+       VALUES (?, ?, 0, ?, ?, datetime('now', '-' || ? || ' hours'))`,
+      [map.title, user.id, uniquePublicId(), map.nodes.length, Math.floor(Math.random() * 72)]
     );
 
     // Insertar nodos y guardar mapa de ids temporales → reales

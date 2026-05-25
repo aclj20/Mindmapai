@@ -71,7 +71,7 @@ export default function CreateMapPage() {
 
       setProgress(100);
       setCurrentStep("¡Mapa conceptual generado con éxito!");
-      setTimeout(() => navigate(`/map/${data.id}`), 800);
+      setTimeout(() => navigate(`/map/${data.public_id}`), 800);
     } catch (err: unknown) {
       timers.forEach(clearTimeout);
       setIsGenerating(false);

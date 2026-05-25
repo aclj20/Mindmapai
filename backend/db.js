@@ -1,6 +1,7 @@
 const initSqlJs = require('sql.js');
 const fs = require('fs');
 const path = require('path');
+const { makeShortId } = require('./utils/shortId');
 
 const DB_PATH = path.join(__dirname, 'data', 'mindmapai.db');
 const DATA_DIR = path.dirname(DB_PATH);
@@ -98,6 +99,7 @@ function createSchema() {
       title TEXT NOT NULL,
       owner_id INTEGER NOT NULL REFERENCES users(id),
       is_public INTEGER DEFAULT 0,
+      public_id TEXT UNIQUE,
       like_count INTEGER DEFAULT 0,
       view_count INTEGER DEFAULT 0,
       comment_count INTEGER DEFAULT 0,
@@ -237,6 +239,26 @@ function createSchema() {
   `);
 
   seedAchievements();
+
+  // Migración: agregar public_id a maps si no existe (para DBs anteriores)
+  try {
+    _db.run('ALTER TABLE maps ADD COLUMN public_id TEXT');
+  } catch (_) { /* columna ya existe */ }
+
+  _db.run('CREATE UNIQUE INDEX IF NOT EXISTS idx_maps_public_id ON maps(public_id)');
+
+  // Generar public_id para mapas que no tengan uno
+  const stmt = _db.prepare('SELECT id FROM maps WHERE public_id IS NULL');
+  const pending = [];
+  while (stmt.step()) pending.push(stmt.getAsObject().id);
+  stmt.free();
+  for (const mapId of pending) {
+    let pid;
+    do { pid = makeShortId(); } while (
+      _db.exec(`SELECT id FROM maps WHERE public_id='${pid}'`)[0]?.values?.length
+    );
+    _db.run('UPDATE maps SET public_id = ? WHERE id = ?', [pid, mapId]);
+  }
 }
 
 function seedAchievements() {

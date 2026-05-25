@@ -3,6 +3,13 @@ const Groq    = require('groq-sdk');
 const db      = require('../db');
 const auth    = require('../middleware/auth');
 const { awardXP, updateStreak } = require('../utils/gamification');
+const { makeShortId }           = require('../utils/shortId');
+
+function uniquePublicId() {
+  let pid;
+  do { pid = makeShortId(); } while (db.get('SELECT id FROM maps WHERE public_id = ?', [pid]));
+  return pid;
+}
 
 const router = express.Router();
 
@@ -131,9 +138,9 @@ ${text.slice(0, 4000)}
 
     try {
       const { lastInsertRowid: mapId } = db.run(
-        `INSERT INTO maps (title, owner_id, is_public, node_count, updated_at)
-         VALUES (?, ?, 0, ?, datetime('now'))`,
-        [title, req.user.id, aiNodes.length]
+        `INSERT INTO maps (title, owner_id, is_public, public_id, node_count, updated_at)
+         VALUES (?, ?, 0, ?, ?, datetime('now'))`,
+        [title, req.user.id, uniquePublicId(), aiNodes.length]
       );
 
       const idMap = {};
@@ -162,7 +169,8 @@ ${text.slice(0, 4000)}
       awardXP(req.user.id, 50, 'map_created');
       updateStreak(req.user.id);
 
-      res.status(201).json({ id: mapId, title });
+      const saved = db.get('SELECT public_id FROM maps WHERE id = ?', [mapId]);
+      res.status(201).json({ id: mapId, public_id: saved.public_id, title });
 
     } catch (dbErr) {
       console.error('Error BD al guardar mapa generado:', dbErr.message);

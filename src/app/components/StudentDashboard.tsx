@@ -23,6 +23,7 @@ const API_URL = "http://localhost:3001/api";
 
 interface RecentMap {
   id: number;
+  public_id: string;
   title: string;
   node_count: number;
   updated_at: string;
@@ -227,7 +228,7 @@ export default function StudentDashboard() {
                   recentMaps.map((map, i) => (
                     <Link
                       key={map.id}
-                      to={`/map/${map.id}`}
+                      to={`/map/${map.public_id}`}
                       className="block p-4 rounded-xl bg-card border border-border hover:border-primary/20 hover:bg-muted/50 transition-all"
                     >
                       <div className="flex items-center gap-4">

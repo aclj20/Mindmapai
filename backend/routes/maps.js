@@ -1,17 +1,31 @@
 const express = require('express');
-const db = require('../db');
-const auth = require('../middleware/auth');
+const db      = require('../db');
+const auth    = require('../middleware/auth');
 const { awardXP, updateStreak } = require('../utils/gamification');
+const { makeShortId }           = require('../utils/shortId');
 
 const router = express.Router();
 
+// Resuelve public_id → map row y lo pone en req.map
+function resolveMap(req, res, next) {
+  const map = db.get('SELECT * FROM maps WHERE public_id = ?', [req.params.id]);
+  if (!map) return res.status(404).json({ message: 'Mapa no encontrado' });
+  req.map = map;
+  next();
+}
+
+function uniquePublicId() {
+  let pid;
+  do { pid = makeShortId(); } while (db.get('SELECT id FROM maps WHERE public_id = ?', [pid]));
+  return pid;
+}
+
 // ── community ────────────────────────────────────────────────────────────────
 
-// GET /api/maps  — mapas públicos (comunidad)
 router.get('/', auth, (_req, res) => {
   const maps = db.all(
-    `SELECT m.id, m.title, m.like_count, m.view_count, m.comment_count, m.node_count,
-            m.created_at, u.name as author, u.id as owner_id,
+    `SELECT m.id, m.public_id, m.title, m.like_count, m.view_count, m.comment_count,
+            m.node_count, m.created_at, u.name as author, u.id as owner_id,
             GROUP_CONCAT(mt.tag, ',') as tags_raw
      FROM maps m
      JOIN users u ON u.id = m.owner_id
@@ -24,53 +38,48 @@ router.get('/', auth, (_req, res) => {
   res.json(maps.map(m => ({ ...m, tags: m.tags_raw ? m.tags_raw.split(',') : [] })));
 });
 
-// GET /api/maps/my — mapas del usuario autenticado
 router.get('/my', auth, (req, res) => {
   const maps = db.all(
-    `SELECT id, title, is_public, like_count, node_count, created_at, updated_at
+    `SELECT id, public_id, title, is_public, like_count, node_count, created_at, updated_at
      FROM maps WHERE owner_id = ? ORDER BY updated_at DESC`,
     [req.user.id]
   );
   res.json(maps);
 });
 
-// POST /api/maps — crear mapa
 router.post('/', auth, (req, res) => {
   const { title, is_public = 0 } = req.body;
   if (!title) return res.status(400).json({ message: 'Título requerido' });
 
+  const public_id = uniquePublicId();
   const { lastInsertRowid: id } = db.run(
-    'INSERT INTO maps (title, owner_id, is_public) VALUES (?,?,?)',
-    [title, req.user.id, is_public ? 1 : 0]
+    'INSERT INTO maps (title, owner_id, is_public, public_id) VALUES (?,?,?,?)',
+    [title, req.user.id, is_public ? 1 : 0, public_id]
   );
 
   awardXP(req.user.id, 50, 'map_created');
   updateStreak(req.user.id);
 
-  res.status(201).json({ id, title, is_public, owner_id: req.user.id });
+  res.status(201).json({ id, public_id, title, is_public, owner_id: req.user.id });
 });
 
-// GET /api/maps/:id — mapa completo con nodos y conexiones
-router.get('/:id', auth, (req, res) => {
-  const map = db.get('SELECT * FROM maps WHERE id = ?', [req.params.id]);
-  if (!map) return res.status(404).json({ message: 'Mapa no encontrado' });
+// ── mapa individual ───────────────────────────────────────────────────────────
+
+router.get('/:id', auth, resolveMap, (req, res) => {
+  const map = req.map;
   if (!map.is_public && map.owner_id !== req.user.id)
     return res.status(403).json({ message: 'Sin acceso' });
 
-  // incrementar vistas si no es el dueño
   if (map.owner_id !== req.user.id)
-    db.run('UPDATE maps SET view_count = view_count + 1 WHERE id = ?', [req.params.id]);
+    db.run('UPDATE maps SET view_count = view_count + 1 WHERE id = ?', [map.id]);
 
-  const nodes = db.all('SELECT * FROM map_nodes WHERE map_id = ?', [req.params.id]);
+  const nodes = db.all('SELECT * FROM map_nodes WHERE map_id = ?', [map.id]);
   const connections = db.all(
-    'SELECT id, from_node_id, to_node_id FROM map_connections WHERE map_id = ?',
-    [req.params.id]
+    'SELECT id, from_node_id, to_node_id FROM map_connections WHERE map_id = ?', [map.id]
   );
-  const tags = db.all('SELECT tag FROM map_tags WHERE map_id = ?', [req.params.id]).map(r => r.tag);
-
+  const tags  = db.all('SELECT tag FROM map_tags WHERE map_id = ?', [map.id]).map(r => r.tag);
   const liked = !!db.get(
-    'SELECT id FROM map_likes WHERE map_id = ? AND user_id = ?',
-    [req.params.id, req.user.id]
+    'SELECT id FROM map_likes WHERE map_id = ? AND user_id = ?', [map.id, req.user.id]
   );
 
   res.json({
@@ -87,79 +96,67 @@ router.get('/:id', auth, (req, res) => {
   });
 });
 
-// PUT /api/maps/:id — actualizar título / visibilidad
-router.put('/:id', auth, (req, res) => {
-  const map = db.get('SELECT id, owner_id FROM maps WHERE id = ?', [req.params.id]);
-  if (!map) return res.status(404).json({ message: 'Mapa no encontrado' });
-  if (map.owner_id !== req.user.id) return res.status(403).json({ message: 'Sin acceso' });
+router.put('/:id', auth, resolveMap, (req, res) => {
+  if (req.map.owner_id !== req.user.id) return res.status(403).json({ message: 'Sin acceso' });
 
   const { title, is_public } = req.body;
   db.run(
     `UPDATE maps SET
-       title     = COALESCE(?, title),
-       is_public = COALESCE(?, is_public),
+       title      = COALESCE(?, title),
+       is_public  = COALESCE(?, is_public),
        updated_at = datetime('now')
      WHERE id = ?`,
-    [title ?? null, is_public != null ? (is_public ? 1 : 0) : null, req.params.id]
+    [title ?? null, is_public != null ? (is_public ? 1 : 0) : null, req.map.id]
   );
   res.json({ message: 'Mapa actualizado' });
 });
 
-// DELETE /api/maps/:id
-router.delete('/:id', auth, (req, res) => {
-  const map = db.get('SELECT owner_id FROM maps WHERE id = ?', [req.params.id]);
-  if (!map) return res.status(404).json({ message: 'Mapa no encontrado' });
-  if (map.owner_id !== req.user.id) return res.status(403).json({ message: 'Sin acceso' });
+router.delete('/:id', auth, resolveMap, (req, res) => {
+  if (req.map.owner_id !== req.user.id) return res.status(403).json({ message: 'Sin acceso' });
 
-  db.run('DELETE FROM maps WHERE id = ?', [req.params.id]);
+  db.run('DELETE FROM maps WHERE id = ?', [req.map.id]);
   db.run('UPDATE users SET xp = MAX(0, xp - 50) WHERE id = ?', [req.user.id]);
   res.json({ message: 'Mapa eliminado' });
 });
 
 // ── likes ────────────────────────────────────────────────────────────────────
 
-router.post('/:id/like', auth, (req, res) => {
-  const map = db.get('SELECT id, like_count FROM maps WHERE id = ?', [req.params.id]);
-  if (!map) return res.status(404).json({ message: 'Mapa no encontrado' });
-
+router.post('/:id/like', auth, resolveMap, (req, res) => {
+  const { id, like_count } = req.map;
   const existing = db.get(
-    'SELECT id FROM map_likes WHERE map_id = ? AND user_id = ?',
-    [req.params.id, req.user.id]
+    'SELECT id FROM map_likes WHERE map_id = ? AND user_id = ?', [id, req.user.id]
   );
 
   if (existing) {
-    db.run('DELETE FROM map_likes WHERE map_id = ? AND user_id = ?', [req.params.id, req.user.id]);
-    db.run('UPDATE maps SET like_count = MAX(0, like_count - 1) WHERE id = ?', [req.params.id]);
-    return res.json({ liked: false, like_count: map.like_count - 1 });
+    db.run('DELETE FROM map_likes WHERE map_id = ? AND user_id = ?', [id, req.user.id]);
+    db.run('UPDATE maps SET like_count = MAX(0, like_count - 1) WHERE id = ?', [id]);
+    return res.json({ liked: false, like_count: like_count - 1 });
   }
 
-  db.run('INSERT INTO map_likes (map_id, user_id) VALUES (?,?)', [req.params.id, req.user.id]);
-  db.run('UPDATE maps SET like_count = like_count + 1 WHERE id = ?', [req.params.id]);
-  res.json({ liked: true, like_count: map.like_count + 1 });
+  db.run('INSERT INTO map_likes (map_id, user_id) VALUES (?,?)', [id, req.user.id]);
+  db.run('UPDATE maps SET like_count = like_count + 1 WHERE id = ?', [id]);
+  res.json({ liked: true, like_count: like_count + 1 });
 });
 
 // ── comentarios ───────────────────────────────────────────────────────────────
 
-router.get('/:id/comments', auth, (req, res) => {
+router.get('/:id/comments', auth, resolveMap, (req, res) => {
   const comments = db.all(
     `SELECT c.id, c.text, c.created_at, u.name as user, u.id as user_id
      FROM map_comments c JOIN users u ON u.id = c.user_id
      WHERE c.map_id = ? ORDER BY c.created_at ASC`,
-    [req.params.id]
+    [req.map.id]
   );
   res.json(comments);
 });
 
-router.post('/:id/comments', auth, (req, res) => {
+router.post('/:id/comments', auth, resolveMap, (req, res) => {
   const { text } = req.body;
   if (!text?.trim()) return res.status(400).json({ message: 'Comentario vacío' });
 
-  const map = db.get('SELECT id FROM maps WHERE id = ?', [req.params.id]);
-  if (!map) return res.status(404).json({ message: 'Mapa no encontrado' });
-
   db.run('INSERT INTO map_comments (map_id, user_id, text) VALUES (?,?,?)',
-    [req.params.id, req.user.id, text.trim()]);
-  db.run('UPDATE maps SET comment_count = comment_count + 1 WHERE id = ?', [req.params.id]);
+    [req.map.id, req.user.id, text.trim()]);
+  db.run('UPDATE maps SET comment_count = comment_count + 1 WHERE id = ?', [req.map.id]);
 
   awardXP(req.user.id, 5, 'comment_added');
   res.status(201).json({ message: 'Comentario agregado' });
@@ -167,15 +164,13 @@ router.post('/:id/comments', auth, (req, res) => {
 
 // ── nodos ────────────────────────────────────────────────────────────────────
 
-// POST /api/maps/:id/nodes — guardar todos los nodos (reemplaza)
-router.post('/:id/nodes', auth, (req, res) => {
-  const map = db.get('SELECT owner_id FROM maps WHERE id = ?', [req.params.id]);
-  if (!map) return res.status(404).json({ message: 'Mapa no encontrado' });
-  if (map.owner_id !== req.user.id) return res.status(403).json({ message: 'Sin acceso' });
+router.post('/:id/nodes', auth, resolveMap, (req, res) => {
+  if (req.map.owner_id !== req.user.id) return res.status(403).json({ message: 'Sin acceso' });
 
   const { nodes = [], connections = [] } = req.body;
+  const mapId = req.map.id;
 
-  db.run('DELETE FROM map_nodes WHERE map_id = ?', [req.params.id]);
+  db.run('DELETE FROM map_nodes WHERE map_id = ?', [mapId]);
 
   const idMap = {};
   for (const n of nodes) {
@@ -183,7 +178,7 @@ router.post('/:id/nodes', auth, (req, res) => {
       `INSERT INTO map_nodes (map_id,x,y,label,category,description,tags,icon,image,stats,is_sticky,color)
        VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
       [
-        req.params.id, n.x, n.y, n.label, n.category || 'concept',
+        mapId, n.x, n.y, n.label, n.category || 'concept',
         n.description || null,
         JSON.stringify(n.tags || []),
         n.icon || null, n.image || null,
@@ -201,20 +196,19 @@ router.post('/:id/nodes', auth, (req, res) => {
     if (fromId && toId) {
       db.run(
         'INSERT OR IGNORE INTO map_connections (map_id, from_node_id, to_node_id) VALUES (?,?,?)',
-        [req.params.id, fromId, toId]
+        [mapId, fromId, toId]
       );
     }
   }
 
   db.run(
     `UPDATE maps SET node_count = ?, updated_at = datetime('now') WHERE id = ?`,
-    [nodes.length, req.params.id]
+    [nodes.length, mapId]
   );
 
   res.json({ message: 'Nodos guardados', count: nodes.length });
 });
 
-// PUT /api/maps/:id/nodes/:nodeId/note — nota personal
 router.put('/:id/nodes/:nodeId/note', auth, (req, res) => {
   const { content = '' } = req.body;
   db.run(
@@ -226,7 +220,6 @@ router.put('/:id/nodes/:nodeId/note', auth, (req, res) => {
   res.json({ message: 'Nota guardada' });
 });
 
-// GET /api/maps/:id/nodes/:nodeId/note
 router.get('/:id/nodes/:nodeId/note', auth, (req, res) => {
   const note = db.get(
     'SELECT content FROM node_notes WHERE node_id = ? AND user_id = ?',

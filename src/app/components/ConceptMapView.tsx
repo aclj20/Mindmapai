@@ -83,14 +83,19 @@ export default function ConceptMapView() {
   const [nodes, setNodes] = useState<Node[]>([]);
   const [mapTitle, setMapTitle] = useState("Cargando...");
   const [loading, setLoading] = useState(true);
+  const [isPrivate, setIsPrivate] = useState(false);
 
   useEffect(() => {
     if (!id) return;
     fetch(`${API_URL}/maps/${id}`, {
       headers: { Authorization: `Bearer ${getToken()}` },
     })
-      .then((r) => r.json())
+      .then(async (r) => {
+        if (r.status === 403) { setIsPrivate(true); setLoading(false); return null; }
+        return r.json();
+      })
       .then((data) => {
+        if (!data) return;
         setMapTitle(data.title ?? "Mapa");
         setIsPublic(!!data.is_public);
         setLiked(!!data.liked);
@@ -252,6 +257,42 @@ export default function ConceptMapView() {
     );
   }
 
+  if (isPrivate) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-background px-4">
+        <motion.div
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="max-w-md w-full text-center space-y-6 p-10 rounded-2xl bg-card border border-border shadow-xl"
+        >
+          <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto">
+            <Lock className="w-8 h-8 text-muted-foreground" />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-foreground mb-2">Este mapa es privado</h2>
+            <p className="text-sm text-muted-foreground">
+              Solo el dueño puede ver este mapa. Puedes solicitar acceso y el dueño recibirá tu petición.
+            </p>
+          </div>
+          <div className="flex flex-col gap-3">
+            <button
+              onClick={() => toast.success("Solicitud enviada al dueño del mapa")}
+              className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-semibold hover:bg-primary-hover transition-colors"
+            >
+              Solicitar acceso
+            </button>
+            <button
+              onClick={() => window.history.back()}
+              className="w-full py-3 rounded-xl border border-border text-muted-foreground font-medium hover:bg-muted transition-colors"
+            >
+              Volver
+            </button>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
+
   return (
     <>
       <div className="h-screen bg-background flex flex-col font-sans overflow-hidden text-foreground">
@@ -286,8 +327,22 @@ export default function ConceptMapView() {
           <div className="flex items-center gap-2 px-1 py-1 bg-muted rounded-xl border border-border">
             <button
               onClick={() => {
-                setIsPublic(!isPublic);
-                toast.success(isPublic ? "Mapa ahora es privado" : "Mapa ahora es público");
+                const next = !isPublic;
+                fetch(`${API_URL}/maps/${id}`, {
+                  method: "PUT",
+                  headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${getToken()}`,
+                  },
+                  body: JSON.stringify({ is_public: next }),
+                })
+                  .then((r) => {
+                    if (r.ok) {
+                      setIsPublic(next);
+                      toast.success(next ? "Mapa ahora es público" : "Mapa ahora es privado");
+                    }
+                  })
+                  .catch(() => toast.error("No se pudo cambiar la visibilidad"));
               }}
               className={`flex items-center justify-center w-9 h-9 rounded-lg transition-all ${
                 isPublic ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-card"
