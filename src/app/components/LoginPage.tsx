@@ -94,7 +94,7 @@ export default function LoginPage() {
                   <button
                     type="button"
                     onClick={() => setRole("student")}
-                    className={`p-4 rounded-xl border transition-all flex flex-col items-center justify-center gap-2 ${
+                    className={`cursor-pointer p-4 rounded-xl border transition-all flex flex-col items-center justify-center gap-2 ${
                       role === "student"
                         ? "border-primary bg-primary-subtle shadow-sm ring-4 ring-primary/5"
                         : "border-border bg-muted/50 hover:bg-muted"
@@ -112,7 +112,7 @@ export default function LoginPage() {
                   <button
                     type="button"
                     onClick={() => setRole("teacher")}
-                    className={`p-4 rounded-xl border transition-all flex flex-col items-center justify-center gap-2 ${
+                    className={`cursor-pointer p-4 rounded-xl border transition-all flex flex-col items-center justify-center gap-2 ${
                       role === "teacher"
                         ? "border-primary bg-primary-subtle shadow-sm ring-4 ring-primary/5"
                         : "border-border bg-muted/50 hover:bg-muted"
@@ -184,7 +184,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-2.5 mt-2 rounded-xl bg-primary hover:bg-primary/90 disabled:opacity-60 disabled:cursor-not-allowed text-primary-foreground font-semibold transition-colors shadow-sm"
+              className="cursor-pointer w-full py-2.5 mt-2 rounded-xl bg-primary hover:bg-primary/90 disabled:opacity-60 disabled:cursor-not-allowed text-primary-foreground font-semibold transition-colors shadow-sm"
             >
               {loading
                 ? "Cargando..."
@@ -197,7 +197,7 @@ export default function LoginPage() {
           <div className="mt-6 text-center">
             <button
               onClick={switchMode}
-              className="text-sm font-medium text-primary hover:text-primary/80 transition-colors"
+              className="cursor-pointer text-sm font-medium text-primary hover:text-primary/80 transition-colors"
             >
               {isLogin
                 ? "¿No tienes cuenta? Regístrate"
