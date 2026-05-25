@@ -11,10 +11,13 @@ let _saveTimer = null;
 
 function save() {
   if (_saveTimer) clearTimeout(_saveTimer);
+  // Escribe inmediatamente + programa una escritura de respaldo
+  const data = _db.export();
+  fs.writeFileSync(DB_PATH, Buffer.from(data));
   _saveTimer = setTimeout(() => {
-    const data = _db.export();
-    fs.writeFileSync(DB_PATH, Buffer.from(data));
-  }, 150);
+    const d = _db.export();
+    fs.writeFileSync(DB_PATH, Buffer.from(d));
+  }, 500);
 }
 
 function flushSave() {

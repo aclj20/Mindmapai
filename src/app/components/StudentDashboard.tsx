@@ -48,32 +48,84 @@ const MAP_COLORS = [
   "bg-muted text-muted-foreground",
 ];
 
+interface UserData {
+  level: number;
+  xp: number;
+  xp_to_next: number;
+  streak: number;
+  total_points: number;
+  maps_created: number;
+  study_sessions: number;
+}
+
+const BADGE_ICONS: Record<string, React.ElementType> = {
+  Trophy, Star, Flame, Award, Target,
+};
+
 export default function StudentDashboard() {
   const navigate = useNavigate();
   const authUser = getAuthUser();
 
-  const [recentMaps, setRecentMaps] = useState<RecentMap[]>([]);
+  const [recentMaps, setRecentMaps]   = useState<RecentMap[]>([]);
   const [mapsLoading, setMapsLoading] = useState(true);
+  const [userData, setUserData]       = useState<UserData | null>(null);
+  const [rank, setRank]               = useState<number | string>("-");
+  const [unlockedBadges, setUnlockedBadges] = useState<{ name: string; icon: string }[]>([]);
+  const [totalNodes, setTotalNodes]   = useState(0);
+  const [mapsThisWeek, setMapsThisWeek] = useState(0);
+
+  const WEEKLY_GOAL = 5;
 
   useEffect(() => {
-    fetch(`${API_URL}/maps/my`, {
-      headers: { Authorization: `Bearer ${getToken()}` },
-    })
+    const h = { Authorization: `Bearer ${getToken()}` };
+
+    // Mapas recientes + total de nodos + desafío semanal
+    fetch(`${API_URL}/maps/my`, { headers: h })
       .then((r) => r.json())
-      .then((data: RecentMap[]) => setRecentMaps(data.slice(0, 3)))
+      .then((data: (RecentMap & { node_count: number; created_at: string })[]) => {
+        setRecentMaps(data.slice(0, 3));
+        setTotalNodes(data.reduce((s, m) => s + (m.node_count ?? 0), 0));
+        const oneWeekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+        setMapsThisWeek(
+          data.filter((m) => new Date(m.created_at + "Z").getTime() > oneWeekAgo).length
+        );
+      })
       .catch(() => {})
       .finally(() => setMapsLoading(false));
+
+    // Datos del usuario
+    fetch(`${API_URL}/users/me`, { headers: h })
+      .then((r) => r.json())
+      .then(setUserData)
+      .catch(() => {});
+
+    // Rank en leaderboard
+    fetch(`${API_URL}/leaderboard`, { headers: h })
+      .then((r) => r.json())
+      .then((data: { isCurrentUser: boolean; rank: number }[]) => {
+        const me = data.find((u) => u.isCurrentUser);
+        if (me) setRank(me.rank);
+      })
+      .catch(() => {});
+
+    // Logros desbloqueados
+    fetch(`${API_URL}/achievements`, { headers: h })
+      .then((r) => r.json())
+      .then((data: { name: string; icon: string; unlocked: boolean }[]) =>
+        setUnlockedBadges(data.filter((a) => a.unlocked).slice(0, 4))
+      )
+      .catch(() => {});
   }, []);
 
   const user = {
-    name: authUser?.name ?? "Estudiante",
-    avatar: authUser ? getAvatarInitials(authUser.name) : "?",
-    level: 1,
-    xp: 0,
-    xpToNext: 1000,
-    streak: 0,
-    totalPoints: 0,
-    rank: "-",
+    name:       authUser?.name ?? "Estudiante",
+    avatar:     authUser ? getAvatarInitials(authUser.name) : "?",
+    level:      userData?.level      ?? 1,
+    xp:         userData?.xp         ?? 0,
+    xpToNext:   userData?.xp_to_next ?? 1000,
+    streak:     userData?.streak     ?? 0,
+    totalPoints:userData?.total_points ?? 0,
+    rank,
   };
 
   function handleLogout() {
@@ -81,17 +133,10 @@ export default function StudentDashboard() {
     navigate("/login");
   }
 
-  const badges = [
-    { icon: Trophy, name: "Explorador", color: "bg-muted" },
-    { icon: Star, name: "Creador Pro", color: "bg-muted" },
-    { icon: Flame, name: "Racha 7 días", color: "bg-muted" },
-    { icon: Award, name: "Top 10", color: "bg-muted" },
-  ];
-
   const stats = [
-    { label: "Mapas creados", value: "23", icon: Brain },
-    { label: "Sesiones de estudio", value: "47", icon: TrendingUp },
-    { label: "Conceptos dominados", value: "312", icon: Star },
+    { label: "Mapas creados",       value: userData?.maps_created  ?? 0, icon: Brain },
+    { label: "Sesiones de estudio", value: userData?.study_sessions ?? 0, icon: TrendingUp },
+    { label: "Conceptos dominados", value: totalNodes,                    icon: Star },
   ];
 
   return (
@@ -279,20 +324,29 @@ export default function StudentDashboard() {
                 Logros destacados
               </h3>
               <div className="grid grid-cols-2 gap-3">
-                {badges.map((badge, i) => (
-                  <motion.div
-                    key={i}
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: i * 0.1 }}
-                    className={`p-4 rounded-xl ${badge.color} border border-border flex flex-col items-center justify-center`}
-                  >
-                    <badge.icon className="w-8 h-8 text-primary mb-2" />
-                    <span className="text-xs font-semibold text-muted-foreground text-center">
-                      {badge.name}
-                    </span>
-                  </motion.div>
-                ))}
+                {unlockedBadges.length === 0 ? (
+                  <p className="col-span-2 text-sm text-muted-foreground text-center py-4">
+                    Aún no tienes logros desbloqueados
+                  </p>
+                ) : (
+                  unlockedBadges.map((badge, i) => {
+                    const Icon = BADGE_ICONS[badge.icon] ?? Award;
+                    return (
+                      <motion.div
+                        key={i}
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ delay: i * 0.1 }}
+                        className="p-4 rounded-xl bg-primary-subtle border border-border flex flex-col items-center justify-center"
+                      >
+                        <Icon className="w-8 h-8 text-primary mb-2" />
+                        <span className="text-xs font-semibold text-muted-foreground text-center">
+                          {badge.name}
+                        </span>
+                      </motion.div>
+                    );
+                  })
+                )}
               </div>
               <Link
                 to="/achievements"
@@ -327,27 +381,31 @@ export default function StudentDashboard() {
 
               <div className="space-y-4">
                 <p className="text-base font-bold text-foreground">
-                  Crea 5 mapas conceptuales esta semana
+                  Crea {WEEKLY_GOAL} mapas conceptuales esta semana
                 </p>
-                
+
                 <Progress.Root
                   className="relative h-2 bg-muted overflow-hidden rounded-full"
-                  value={60}
+                  value={Math.min((mapsThisWeek / WEEKLY_GOAL) * 100, 100)}
                 >
                   <Progress.Indicator
                     className="h-full bg-primary transition-all duration-500 rounded-full"
-                    style={{ transform: "translateX(-40%)" }}
+                    style={{
+                      transform: `translateX(-${100 - Math.min((mapsThisWeek / WEEKLY_GOAL) * 100, 100)}%)`,
+                    }}
                   />
                 </Progress.Root>
-                
+
                 <div className="flex justify-between items-center text-sm font-medium">
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <div className="w-5 h-5 rounded-full border border-primary/30 flex items-center justify-center text-primary">
                       <Check className="w-3 h-3" />
                     </div>
-                    <span>3 de 5 completados</span>
+                    <span>{mapsThisWeek} de {WEEKLY_GOAL} completados</span>
                   </div>
-                  <span className="text-muted-foreground">60%</span>
+                  <span className="text-muted-foreground">
+                    {Math.round((mapsThisWeek / WEEKLY_GOAL) * 100)}%
+                  </span>
                 </div>
               </div>
             </div>
