@@ -298,6 +298,13 @@ export default function ConceptMapView() {
       <div className="h-screen bg-background flex flex-col font-sans overflow-hidden text-foreground">
       <nav className="px-6 py-4 bg-background border-b border-border flex items-center justify-between z-20 shadow-sm">
         <div className="flex items-center gap-6">
+          <Link
+            to="/dashboard/student"
+            className="w-10 h-10 rounded-full border border-border bg-card flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            aria-label="Volver al dashboard"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </Link>
           <div className="flex items-center gap-3">
              <div className="bg-muted px-3 py-1.5 rounded-lg border border-border flex items-center gap-2">
                 <span className="text-sm font-bold">{mapTitle}</span>
