@@ -775,7 +775,7 @@ export default function ConceptMapView() {
                   <div className="text-foreground font-semibold group-hover:text-primary transition-colors">Copiar enlace</div>
                 </div>
               </button>
-              {[
+{/*               {[
                 { name: "Twitter", icon: Twitter },
                 { name: "Facebook", icon: Facebook },
               ].map((platform) => (
@@ -793,7 +793,7 @@ export default function ConceptMapView() {
                     </div>
                   </div>
                 </button>
-              ))}
+              ))} */}
             </div>
           </Dialog.Content>
         </Dialog.Portal>

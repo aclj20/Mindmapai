@@ -1,4 +1,5 @@
 import { Link } from "react-router";
+import { useEffect, useState } from "react";
 import {
   ArrowLeft,
   Trophy,
@@ -11,21 +12,67 @@ import {
 import { motion } from "motion/react";
 import * as Progress from "@radix-ui/react-progress";
 import MobileNav from "./MobileNav";
+import { getAuthUser, getAvatarInitials, getToken } from "../hooks/useAuth";
+
+const API_URL = "http://localhost:3001/api";
+
+interface UserData {
+  level: number;
+  xp: number;
+  xp_to_next: number;
+  streak: number;
+  total_points: number;
+  created_at: string;
+  maps_created: number;
+  study_sessions: number;
+}
+
+function formatJoinDate(dateStr?: string): string {
+  if (!dateStr) return "—";
+  const date = new Date(`${dateStr}Z`);
+  if (Number.isNaN(date.getTime())) return "—";
+  const months = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+  return `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
+}
 
 export default function ProfilePage() {
+  const authUser = getAuthUser();
+  const [userData, setUserData] = useState<UserData | null>(null);
+  const [totalNodes, setTotalNodes] = useState(0);
+
+  useEffect(() => {
+    const headers = { Authorization: `Bearer ${getToken()}` };
+
+    fetch(`${API_URL}/users/me`, { headers })
+      .then((r) => r.json())
+      .then(setUserData)
+      .catch(() => {});
+
+    fetch(`${API_URL}/maps/my`, { headers })
+      .then((r) => r.json())
+      .then((data: { node_count?: number }[]) =>
+        setTotalNodes(data.reduce((sum, m) => sum + (m.node_count ?? 0), 0))
+      )
+      .catch(() => {});
+  }, []);
+
+  const xp = userData?.xp ?? 0;
+  const xpToNext = userData?.xp_to_next ?? 1000;
+  const xpPercent = xpToNext > 0 ? (xp / xpToNext) * 100 : 0;
+
   const user = {
-    name: "Alex García",
-    email: "alex.garcia@email.com",
-    avatar: "AG",
-    level: 12,
-    xp: 2450,
-    xpToNext: 3000,
-    streak: 7,
-    totalPoints: 15240,
-    joinDate: "15 Feb 2026",
-    mapsCreated: 23,
-    studySessions: 47,
-    conceptsMastered: 312,
+    name: authUser?.name ?? "Usuario",
+    email: authUser?.email ?? "",
+    avatar: authUser ? getAvatarInitials(authUser.name) : "?",
+    level: userData?.level ?? 1,
+    xp,
+    xpToNext,
+    streak: userData?.streak ?? 0,
+    totalPoints: userData?.total_points ?? 0,
+    joinDate: formatJoinDate(userData?.created_at),
+    mapsCreated: userData?.maps_created ?? 0,
+    studySessions: userData?.study_sessions ?? 0,
+    conceptsMastered: totalNodes,
   };
 
   const achievements = [
@@ -85,12 +132,12 @@ export default function ProfilePage() {
               </div>
               <Progress.Root
                 className="relative h-2.5 overflow-hidden rounded-full bg-gray-100"
-                value={(user.xp / user.xpToNext) * 100}
+                value={xpPercent}
               >
                 <Progress.Indicator
                   className="h-full bg-purple-600 transition-all duration-500 rounded-full"
                   style={{
-                    transform: `translateX(-${100 - (user.xp / user.xpToNext) * 100}%)`,
+                    transform: `translateX(-${100 - xpPercent}%)`,
                   }}
                 />
               </Progress.Root>
