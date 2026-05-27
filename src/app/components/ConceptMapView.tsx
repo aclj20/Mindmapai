@@ -38,6 +38,8 @@ import {
   Globe,
   Lock,
   X,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import * as Dialog from "@radix-ui/react-dialog";
@@ -84,6 +86,7 @@ export default function ConceptMapView() {
   const [mapTitle, setMapTitle] = useState("Cargando...");
   const [loading, setLoading] = useState(true);
   const [isPrivate, setIsPrivate] = useState(false);
+  const [isReading, setIsReading] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -217,6 +220,41 @@ export default function ConceptMapView() {
     })
       .then(() => fetchComments())
       .catch(() => {});
+  };
+
+  const handleReadAloud = () => {
+    if (!window.speechSynthesis) {
+      toast.error("Tu navegador no soporta texto a voz");
+      return;
+    }
+    window.speechSynthesis.cancel();
+    setIsReading(true);
+
+    const parts: string[] = [
+      `Mapa conceptual: ${mapTitle}. Este mapa tiene ${nodes.length} conceptos.`,
+    ];
+
+    nodes.forEach((node, i) => {
+      parts.push(`Concepto ${i + 1}: ${node.label}.`);
+      if (node.description) parts.push(node.description);
+      const connLabels = node.connections
+        .map((cid) => nodes.find((n) => n.id === cid)?.label)
+        .filter(Boolean);
+      if (connLabels.length > 0)
+        parts.push(`Se relaciona con: ${connLabels.join(", ")}.`);
+    });
+
+    const utterance = new SpeechSynthesisUtterance(parts.join(" "));
+    utterance.lang = "es-ES";
+    utterance.rate = 0.9;
+    utterance.onend = () => setIsReading(false);
+    utterance.onerror = () => setIsReading(false);
+    window.speechSynthesis.speak(utterance);
+  };
+
+  const handleStopReading = () => {
+    window.speechSynthesis?.cancel();
+    setIsReading(false);
   };
 
   const getNodeWidth = (label: string, category: string) => {
@@ -405,8 +443,45 @@ export default function ConceptMapView() {
               <button onClick={() => setShowExportModal(true)} className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold text-muted-foreground hover:bg-muted">
                  <Download className="w-3.5 h-3.5" /> Exportar
               </button>
+              <div className="w-px h-4 bg-border" />
+              <button
+                onClick={isReading ? handleStopReading : handleReadAloud}
+                aria-label={isReading ? "Detener lectura" : "Leer mapa en voz alta"}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+                  isReading
+                    ? "text-primary bg-primary-subtle hover:bg-primary/20"
+                    : "text-muted-foreground hover:bg-muted"
+                }`}
+              >
+                {isReading ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+                {isReading ? "Detener" : "Leer mapa"}
+              </button>
            </div>
         </div>
+
+        {/* Contenido accesible para screen readers — visualmente oculto */}
+        <section className="sr-only" aria-label={`Mapa conceptual: ${mapTitle}`}>
+          <h1>{mapTitle}</h1>
+          <p>{nodes.length} conceptos en este mapa.</p>
+          <ul>
+            {nodes.map((node) => {
+              const connLabels = node.connections
+                .map((cid) => nodes.find((n) => n.id === cid)?.label)
+                .filter(Boolean);
+              const incomingLabels = nodes
+                .filter((n) => n.connections.includes(node.id))
+                .map((n) => n.label);
+              return (
+                <li key={node.id}>
+                  <h2>{node.label}</h2>
+                  {node.description && <p>{node.description}</p>}
+                  {connLabels.length > 0 && <p>Conecta con: {connLabels.join(", ")}.</p>}
+                  {incomingLabels.length > 0 && <p>Referenciado por: {incomingLabels.join(", ")}.</p>}
+                </li>
+              );
+            })}
+          </ul>
+        </section>
 
         <div className="flex-1 relative">
           <svg
@@ -466,7 +541,21 @@ export default function ConceptMapView() {
                     onClick={(e) => { e.stopPropagation(); setSelectedNode(node.id); }}
                     onMouseEnter={() => setHoveredNode(node.id)}
                     onMouseLeave={() => setHoveredNode(null)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setSelectedNode(node.id);
+                      }
+                    }}
                     className="cursor-pointer"
+                    role="button"
+                    tabIndex={0}
+                    aria-label={
+                      node.description
+                        ? `${node.label}: ${node.description}`
+                        : node.label
+                    }
+                    aria-pressed={selectedNode === node.id}
                   >
                     {node.isSticky ? (
                       <g style={{ filter: "drop-shadow(3px 6px 12px rgba(0,0,0,0.1))" }}>
@@ -582,23 +671,79 @@ export default function ConceptMapView() {
                  </div>
               </div>
 
-              <div className="flex-1 overflow-y-auto p-6 space-y-8">
+              <div className="flex-1 overflow-y-auto p-6 space-y-6">
                 {activeTab === "resumen" ? (
                   <>
-                    {selectedNodeData.image && (
-                      <div className="rounded-2xl overflow-hidden border border-border shadow-sm">
-                        <img src={selectedNodeData.image} alt={selectedNodeData.label} className="w-full h-48 object-cover" />
+                    {/* Descripción */}
+                    <div className="space-y-2">
+                      <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Descripción</h4>
+                      {selectedNodeData.description ? (
+                        <p className="text-sm text-foreground leading-relaxed">
+                          {selectedNodeData.description}
+                        </p>
+                      ) : (
+                        <p className="text-sm text-muted-foreground italic">Sin descripción disponible.</p>
+                      )}
+                    </div>
+
+                    {/* Relaciones salientes */}
+                    {selectedNodeData.connections.length > 0 && (
+                      <div className="space-y-2">
+                        <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Conecta con</h4>
+                        <div className="flex flex-col gap-2">
+                          {selectedNodeData.connections.map((connId) => {
+                            const connNode = nodes.find(n => n.id === connId);
+                            if (!connNode) return null;
+                            return (
+                              <button
+                                key={connId}
+                                onClick={() => setSelectedNode(connId)}
+                                className="flex items-start gap-3 p-3 bg-muted border border-border rounded-xl hover:border-primary/40 hover:bg-primary-subtle transition-colors text-left group"
+                              >
+                                <div className="w-2 h-2 rounded-full bg-primary/50 mt-1.5 shrink-0 group-hover:bg-primary transition-colors" />
+                                <div>
+                                  <p className="text-xs font-bold text-foreground group-hover:text-primary transition-colors">{connNode.label}</p>
+                                  {connNode.description && (
+                                    <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">{connNode.description}</p>
+                                  )}
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
                     )}
 
-                    <div className="space-y-4">
-                       <p className="text-sm text-muted-foreground leading-relaxed font-medium">
-                          {selectedNodeData.description}
-                       </p>
-                    </div>
+                    {/* Relaciones entrantes */}
+                    {(() => {
+                      const incoming = nodes.filter(n => n.connections.includes(selectedNodeData.id));
+                      if (incoming.length === 0) return null;
+                      return (
+                        <div className="space-y-2">
+                          <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Referenciado por</h4>
+                          <div className="flex flex-col gap-2">
+                            {incoming.map((n) => (
+                              <button
+                                key={n.id}
+                                onClick={() => setSelectedNode(n.id)}
+                                className="flex items-start gap-3 p-3 bg-muted border border-border rounded-xl hover:border-primary/40 hover:bg-primary-subtle transition-colors text-left group"
+                              >
+                                <div className="w-2 h-2 rounded-full bg-muted-foreground/40 mt-1.5 shrink-0 group-hover:bg-primary/60 transition-colors" />
+                                <div>
+                                  <p className="text-xs font-bold text-foreground group-hover:text-primary transition-colors">{n.label}</p>
+                                  {n.description && (
+                                    <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">{n.description}</p>
+                                  )}
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })()}
 
-                    {selectedNodeData.stats && (
-                       <div className="space-y-4">
+                    {selectedNodeData.stats && Object.keys(selectedNodeData.stats).length > 0 && (
+                       <div className="space-y-2">
                           <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Características</h4>
                           <div className="grid grid-cols-2 gap-3">
                              {Object.entries(selectedNodeData.stats).map(([key, val]) => (
@@ -610,21 +755,6 @@ export default function ConceptMapView() {
                           </div>
                        </div>
                     )}
-
-                    <div>
-                       <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-3">Conexiones</h4>
-                       <div className="flex flex-wrap gap-2">
-                          {selectedNodeData.connections.map((connId) => {
-                             const connNode = nodes.find(n => n.id === connId);
-                             return (
-                                <div key={connId} className="px-3 py-1.5 bg-muted border border-border rounded-xl text-[10px] font-bold text-foreground flex items-center gap-2">
-                                   <div className="w-1.5 h-1.5 rounded-full bg-primary/40"></div>
-                                   {connNode?.label}
-                                </div>
-                             );
-                          })}
-                       </div>
-                    </div>
                   </>
                 ) : (
                   <div className="space-y-4 h-full flex flex-col">

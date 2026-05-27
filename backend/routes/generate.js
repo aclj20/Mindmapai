@@ -1,9 +1,26 @@
-const express = require('express');
-const Groq    = require('groq-sdk');
-const db      = require('../db');
-const auth    = require('../middleware/auth');
+const express  = require('express');
+const multer   = require('multer');
+const pdfParse = require('pdf-parse');
+const mammoth  = require('mammoth');
+const Groq     = require('groq-sdk');
+const db       = require('../db');
+const auth     = require('../middleware/auth');
 const { awardXP, updateStreak } = require('../utils/gamification');
 const { makeShortId }           = require('../utils/shortId');
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter(req, file, cb) {
+    const allowed = ['text/plain', 'application/pdf',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+    if (allowed.includes(file.mimetype) || file.originalname.match(/\.(txt|pdf|docx)$/i)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Tipo de archivo no soportado. Usa TXT, PDF o DOCX.'));
+    }
+  },
+});
 
 function uniquePublicId() {
   let pid;
@@ -13,10 +30,12 @@ function uniquePublicId() {
 
 const router = express.Router();
 
-// Radial tree layout — nivel 0 en el centro, niveles siguientes en círculos concéntricos
+// 2-ring layout: root at center, level-1 nodes on inner ring, deeper nodes on outer ring.
+// Radii adapt to the number of nodes so cards never overlap.
 function computeLayout(nodes, connections) {
-  const CENTER = { x: 500, y: 350 };
-  const RADII  = [0, 220, 400, 540];
+  if (nodes.length === 0) return {};
+  const CENTER = { x: 500, y: 380 };
+  if (nodes.length === 1) return { [nodes[0].id]: CENTER };
 
   const adj = {};
   for (const n of nodes) adj[n.id] = [];
@@ -24,17 +43,16 @@ function computeLayout(nodes, connections) {
     if (adj[c.from] !== undefined) adj[c.from].push(c.to);
   }
 
-  const levels  = {};
-  const queue   = [nodes[0].id];
+  const levels = { [nodes[0].id]: 0 };
+  const queue  = [nodes[0].id];
   const visited = new Set([nodes[0].id]);
-  levels[nodes[0].id] = 0;
 
   while (queue.length) {
     const cur = queue.shift();
-    for (const next of (adj[cur] || [])) {
+    for (const next of adj[cur] || []) {
       if (!visited.has(next)) {
         visited.add(next);
-        levels[next] = (levels[cur] || 0) + 1;
+        levels[next] = levels[cur] + 1;
         queue.push(next);
       }
     }
@@ -44,36 +62,35 @@ function computeLayout(nodes, connections) {
     if (levels[n.id] === undefined) levels[n.id] = 1;
   }
 
-  const byLevel = {};
-  for (const [id, level] of Object.entries(levels)) {
-    if (!byLevel[level]) byLevel[level] = [];
-    byLevel[level].push(id);
-  }
+  const inner = nodes.filter(n => levels[n.id] === 1).map(n => n.id);
+  const outer = nodes.filter(n => levels[n.id] >  1).map(n => n.id);
 
-  const positions = {};
-  for (const [levelStr, ids] of Object.entries(byLevel)) {
-    const level  = parseInt(levelStr);
-    const radius = RADII[Math.min(level, RADII.length - 1)];
+  const NODE_W = 190; // approx max card width — determines min arc spacing
+  const rInner = Math.max(190, Math.ceil((inner.length * NODE_W) / (2 * Math.PI)));
+  const rOuter = Math.max(rInner + 200, Math.ceil((outer.length * NODE_W) / (2 * Math.PI)));
 
-    if (level === 0) {
-      positions[ids[0]] = CENTER;
-      continue;
-    }
+  const positions = { [nodes[0].id]: CENTER };
 
-    ids.forEach((id, i) => {
-      const angle = (2 * Math.PI * i) / ids.length - Math.PI / 2;
-      positions[id] = {
-        x: Math.round(CENTER.x + radius * Math.cos(angle)),
-        y: Math.round(CENTER.y + radius * Math.sin(angle)),
-      };
-    });
-  }
+  inner.forEach((id, i) => {
+    const angle = (2 * Math.PI * i) / inner.length - Math.PI / 2;
+    positions[id] = {
+      x: Math.round(CENTER.x + rInner * Math.cos(angle)),
+      y: Math.round(CENTER.y + rInner * Math.sin(angle)),
+    };
+  });
+
+  outer.forEach((id, i) => {
+    const angle = (2 * Math.PI * i) / outer.length - Math.PI / 2;
+    positions[id] = {
+      x: Math.round(CENTER.x + rOuter * Math.cos(angle)),
+      y: Math.round(CENTER.y + rOuter * Math.sin(angle)),
+    };
+  });
 
   return positions;
 }
 
-// POST /api/maps/generate
-router.post('/', auth, async (req, res) => {
+async function generateFromText(req, res) {
   const { text } = req.body;
   if (!text?.trim()) return res.status(400).json({ message: 'Texto requerido' });
 
@@ -108,8 +125,8 @@ Devuelve ÚNICAMENTE JSON válido con esta estructura exacta:
 Reglas:
 - Extrae entre 8 y 15 conceptos clave
 - El PRIMER nodo debe ser el concepto central/principal
-- Etiquetas: máx 4 palabras
-- Descripciones: opcionales, máx 20 palabras
+- Etiquetas: máx 4 palabras, concisas
+- Descripciones: OBLIGATORIAS para cada nodo, entre 2 y 4 oraciones. Explica qué es el concepto, por qué es relevante dentro del tema y cómo se relaciona con los demás nodos del mapa
 - Crea conexiones que representen relaciones significativas entre conceptos
 - Devuelve ÚNICAMENTE el JSON
 
@@ -181,6 +198,42 @@ ${text.slice(0, 4000)}
     console.error('Error Groq:', err.message);
     res.status(500).json({ message: 'Error al conectar con la IA' });
   }
+}
+
+// POST /api/maps/generate
+router.post('/', auth, generateFromText);
+
+// POST /api/maps/generate/file
+router.post('/file', auth, upload.single('file'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ message: 'Archivo requerido' });
+
+  let text = '';
+  try {
+    const mime = req.file.mimetype;
+    const name = req.file.originalname.toLowerCase();
+
+    if (mime === 'text/plain' || name.endsWith('.txt')) {
+      text = req.file.buffer.toString('utf-8');
+    } else if (mime === 'application/pdf' || name.endsWith('.pdf')) {
+      const parsed = await pdfParse(req.file.buffer);
+      text = parsed.text;
+    } else if (name.endsWith('.docx') || mime.includes('wordprocessingml')) {
+      const result = await mammoth.extractRawText({ buffer: req.file.buffer });
+      text = result.value;
+    } else {
+      return res.status(400).json({ message: 'Tipo de archivo no soportado' });
+    }
+  } catch (parseErr) {
+    console.error('Error al leer archivo:', parseErr.message);
+    return res.status(422).json({ message: 'No se pudo leer el archivo' });
+  }
+
+  text = text.trim();
+  if (!text) return res.status(422).json({ message: 'El archivo está vacío o no contiene texto legible' });
+
+  // Reusar la misma lógica de generación
+  req.body.text = text;
+  return generateFromText(req, res);
 });
 
 module.exports = router;

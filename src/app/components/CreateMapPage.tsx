@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, DragEvent } from "react";
 import { useNavigate, Link } from "react-router";
 import {
   FileText,
@@ -7,6 +7,8 @@ import {
   Sparkles,
   ArrowLeft,
   Loader2,
+  CheckCircle2,
+  X,
 } from "lucide-react";
 import { motion } from "motion/react";
 import * as Tabs from "@radix-ui/react-tabs";
@@ -22,6 +24,13 @@ const STEPS = [
   { at: 80, label: "Estableciendo relaciones semánticas entre nodos..." },
 ];
 
+const ACCEPTED_TYPES = [".txt", ".pdf", ".docx"];
+const ACCEPTED_MIME = [
+  "text/plain",
+  "application/pdf",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+];
+
 export default function CreateMapPage() {
   const navigate = useNavigate();
   const [text, setText] = useState("");
@@ -29,6 +38,29 @@ export default function CreateMapPage() {
   const [progress, setProgress] = useState(0);
   const [currentStep, setCurrentStep] = useState("");
   const [error, setError] = useState("");
+
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const startProgressAnimation = () => {
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    STEPS.forEach((s, i) => {
+      if (i === 0) return;
+      timers.push(setTimeout(() => {
+        setProgress(s.at);
+        setCurrentStep(s.label);
+      }, i * 1200));
+    });
+    return timers;
+  };
+
+  const finishGeneration = (timers: ReturnType<typeof setTimeout>[], publicId: string) => {
+    timers.forEach(clearTimeout);
+    setProgress(100);
+    setCurrentStep("¡Mapa conceptual generado con éxito!");
+    setTimeout(() => navigate(`/map/${publicId}`), 800);
+  };
 
   const handleGenerate = async () => {
     if (!text.trim()) return;
@@ -38,17 +70,7 @@ export default function CreateMapPage() {
     setProgress(0);
     setCurrentStep(STEPS[0].label);
 
-    // Animación de progreso mientras espera la respuesta
-    const timers: ReturnType<typeof setTimeout>[] = [];
-    STEPS.forEach((s, i) => {
-      if (i === 0) return;
-      timers.push(
-        setTimeout(() => {
-          setProgress(s.at);
-          setCurrentStep(s.label);
-        }, i * 1200)
-      );
-    });
+    const timers = startProgressAnimation();
 
     try {
       const res = await fetch(`${API_URL}/maps/generate`, {
@@ -68,10 +90,66 @@ export default function CreateMapPage() {
       }
 
       const data = await res.json();
+      finishGeneration([], data.public_id);
+    } catch (err: unknown) {
+      timers.forEach(clearTimeout);
+      setIsGenerating(false);
+      setError(err instanceof Error ? err.message : "Error desconocido");
+    }
+  };
 
-      setProgress(100);
-      setCurrentStep("¡Mapa conceptual generado con éxito!");
-      setTimeout(() => navigate(`/map/${data.public_id}`), 800);
+  const handleFileSelect = (file: File) => {
+    const isValid =
+      ACCEPTED_MIME.includes(file.type) ||
+      ACCEPTED_TYPES.some((ext) => file.name.toLowerCase().endsWith(ext));
+    if (!isValid) {
+      setError("Formato no soportado. Usa TXT, PDF o DOCX.");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setError("El archivo supera el límite de 10 MB.");
+      return;
+    }
+    setError("");
+    setSelectedFile(file);
+  };
+
+  const handleDrop = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files[0];
+    if (file) handleFileSelect(file);
+  };
+
+  const handleGenerateFile = async () => {
+    if (!selectedFile) return;
+
+    setIsGenerating(true);
+    setError("");
+    setProgress(0);
+    setCurrentStep(STEPS[0].label);
+
+    const timers = startProgressAnimation();
+
+    try {
+      const formData = new FormData();
+      formData.append("file", selectedFile);
+
+      const res = await fetch(`${API_URL}/maps/generate/file`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${getToken()}` },
+        body: formData,
+      });
+
+      timers.forEach(clearTimeout);
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || "Error al generar el mapa");
+      }
+
+      const data = await res.json();
+      finishGeneration([], data.public_id);
     } catch (err: unknown) {
       timers.forEach(clearTimeout);
       setIsGenerating(false);
@@ -162,19 +240,56 @@ export default function CreateMapPage() {
               </Tabs.Content>
 
               <Tabs.Content value="file">
-                <div className="p-12 rounded-xl bg-muted border-2 border-border border-dashed hover:border-primary transition-colors cursor-pointer">
-                  <div className="text-center">
-                    <div className="w-16 h-16 rounded-full bg-primary-subtle flex items-center justify-center mx-auto mb-4">
-                      <Upload className="w-8 h-8 text-primary" />
-                    </div>
-                    <h3 className="text-lg font-medium text-foreground mb-1">
-                      Haz clic o arrastra un archivo
-                    </h3>
-                    <p className="text-muted-foreground mb-6 text-sm">
-                      PDF, DOCX, TXT (máx. 10MB)
-                    </p>
-                    <p className="text-sm text-muted-foreground">Próximamente</p>
+                <div className="p-6 rounded-xl bg-card border border-border shadow-sm">
+                  <div
+                    onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                    onDragLeave={() => setIsDragging(false)}
+                    onDrop={handleDrop}
+                    onClick={() => fileInputRef.current?.click()}
+                    className={`p-10 rounded-lg border-2 border-dashed transition-colors cursor-pointer flex flex-col items-center justify-center gap-3 ${
+                      isDragging ? "border-primary bg-primary-subtle" : "border-border hover:border-primary"
+                    }`}
+                  >
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".txt,.pdf,.docx"
+                      className="hidden"
+                      onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileSelect(f); }}
+                    />
+                    {selectedFile ? (
+                      <>
+                        <CheckCircle2 className="w-10 h-10 text-primary" />
+                        <p className="font-medium text-foreground text-center">{selectedFile.name}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {(selectedFile.size / 1024).toFixed(0)} KB
+                        </p>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setSelectedFile(null); }}
+                          className="flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive transition-colors"
+                        >
+                          <X className="w-3 h-3" /> Cambiar archivo
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="w-10 h-10 text-muted-foreground" />
+                        <p className="font-medium text-foreground">Haz clic o arrastra un archivo</p>
+                        <p className="text-sm text-muted-foreground">TXT, PDF, DOCX — máx. 10 MB</p>
+                      </>
+                    )}
                   </div>
+                  {error && (
+                    <p className="mt-2 text-sm text-destructive font-medium">{error}</p>
+                  )}
+                  <button
+                    onClick={handleGenerateFile}
+                    disabled={!selectedFile}
+                    className="mt-4 w-full py-3 rounded-md bg-primary hover:bg-primary-hover text-primary-foreground font-medium transition-colors shadow-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Sparkles className="w-5 h-5" />
+                    Generar mapa con IA
+                  </button>
                 </div>
               </Tabs.Content>
 

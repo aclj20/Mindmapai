@@ -11,12 +11,12 @@ app.use(express.json());
 
 app.use('/api/auth',         require('./routes/auth'));
 app.use('/api/users',        require('./routes/users'));
+app.use('/api/maps/generate', require('./routes/generate'));
 app.use('/api/maps',         require('./routes/maps'));
 app.use('/api/groups',       require('./routes/groups'));
 app.use('/api/leaderboard',  require('./routes/leaderboard'));
 app.use('/api/achievements', require('./routes/achievements'));
 app.use('/api/sessions',     require('./routes/sessions'));
-app.use('/api/maps/generate', require('./routes/generate'));
 
 app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
 
