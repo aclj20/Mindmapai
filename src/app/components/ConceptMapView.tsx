@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { getToken } from "../hooks/useAuth";
+import { jsPDF } from "jspdf";
 
 const API_URL = "http://localhost:3001/api";
 import { Link, useParams } from "react-router";
@@ -191,8 +192,27 @@ export default function ConceptMapView() {
   };
 
   const handleExport = (format: string) => {
-    toast.success(`Exportando mapa como ${format.toUpperCase()}...`);
+    const normalized = format.toLowerCase();
     setShowExportModal(false);
+    if (normalized === "png") {
+      exportAsPng().catch((err) => {
+        console.error("Error exportando PNG:", err);
+        toast.error("No se pudo exportar el mapa");
+      });
+      return;
+    }
+    if (normalized === "pdf") {
+      exportAsPdf().catch((err) => {
+        console.error("Error exportando PDF:", err);
+        toast.error("No se pudo exportar el mapa");
+      });
+      return;
+    }
+    if (normalized === "json") {
+      exportAsJson();
+      return;
+    }
+    toast.error("Formato de exportacion no soportado");
   };
 
   const handleShare = (platform: string) => {
@@ -280,6 +300,254 @@ export default function ConceptMapView() {
   };
 
   const selectedNodeData = nodes.find((n) => n.id === selectedNode);
+
+  const getThemeValue = (token: string, fallback: string) => {
+    const raw = getComputedStyle(document.documentElement).getPropertyValue(token).trim();
+    return raw || fallback;
+  };
+
+  const getExportPalette = () => ({
+    primary: getThemeValue("--primary", "#4f46e5"),
+    primaryHover: getThemeValue("--primary-hover", "#4338ca"),
+    primaryForeground: getThemeValue("--primary-foreground", "#ffffff"),
+    primarySubtle: getThemeValue("--primary-subtle", "#e0e7ff"),
+    card: getThemeValue("--card", "#ffffff"),
+    border: getThemeValue("--border", "#e5e7eb"),
+    foreground: getThemeValue("--foreground", "#111827"),
+    mutedForeground: getThemeValue("--muted-foreground", "#6b7280"),
+  });
+
+  const getNodeExportColors = (category: string, palette: ReturnType<typeof getExportPalette>) => {
+    if (category === "main") {
+      return {
+        fill: palette.primary,
+        stroke: palette.primaryHover,
+        text: palette.primaryForeground,
+      };
+    }
+    return {
+      fill: palette.card,
+      stroke: palette.border,
+      text: palette.foreground,
+    };
+  };
+
+  const getNodeSize = (node: Node) => {
+    if (node.isSticky) {
+      return { width: 160, height: 160 };
+    }
+    return {
+      width: getNodeWidth(node.label, node.category),
+      height: getNodeHeight(node.category),
+    };
+  };
+
+  const getMapBounds = () => {
+    if (nodes.length === 0) {
+      return { x: 0, y: 0, width: 800, height: 600 };
+    }
+    const bounds = nodes.map((node) => {
+      const { width, height } = getNodeSize(node);
+      return {
+        minX: node.x - width / 2,
+        minY: node.y - height / 2,
+        maxX: node.x + width / 2,
+        maxY: node.y + height / 2,
+      };
+    });
+
+    const minX = Math.min(...bounds.map((b) => b.minX));
+    const minY = Math.min(...bounds.map((b) => b.minY));
+    const maxX = Math.max(...bounds.map((b) => b.maxX));
+    const maxY = Math.max(...bounds.map((b) => b.maxY));
+
+    return {
+      x: minX,
+      y: minY,
+      width: maxX - minX,
+      height: maxY - minY,
+    };
+  };
+
+  const escapeXml = (value: string) =>
+    value
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+
+  const wrapText = (text: string, maxChars: number, maxLines: number) => {
+    const words = text.split(/\s+/).filter(Boolean);
+    const lines: string[] = [];
+    let current = "";
+
+    words.forEach((word) => {
+      const next = current ? `${current} ${word}` : word;
+      if (next.length > maxChars && current) {
+        lines.push(current);
+        current = word;
+      } else {
+        current = next;
+      }
+    });
+
+    if (current) lines.push(current);
+
+    if (lines.length > maxLines) {
+      const trimmed = lines.slice(0, maxLines);
+      trimmed[maxLines - 1] = `${trimmed[maxLines - 1].replace(/\.{3}$/, "").trim()}...`;
+      return trimmed;
+    }
+    return lines;
+  };
+
+  const buildExportSvg = () => {
+    const bounds = getMapBounds();
+    const padding = 40;
+    const exportWidth = Math.max(bounds.width + padding * 2, 800);
+    const exportHeight = Math.max(bounds.height + padding * 2, 600);
+    const viewBoxX = bounds.x - padding;
+    const viewBoxY = bounds.y - padding;
+
+    const palette = getExportPalette();
+    const rawFontFamily = getComputedStyle(document.body).fontFamily || "Arial, sans-serif";
+    const fontFamily = rawFontFamily.split(",")[0].replace(/"/g, "").trim() || "Arial";
+
+    const connectionPaths = nodes.flatMap((node) =>
+      node.connections.map((connId) => {
+        const child = nodes.find((n) => n.id === connId);
+        if (!child) return "";
+        const dx = child.x - node.x;
+        const dy = child.y - node.y;
+        const path = `M ${node.x} ${node.y} C ${node.x} ${node.y + dy / 2}, ${child.x} ${child.y - dy / 2}, ${child.x} ${child.y}`;
+        return `<path d=\"${path}\" fill=\"none\" stroke=\"${palette.primary}\" stroke-width=\"2\" stroke-opacity=\"0.2\" />`;
+      })
+    );
+
+    const nodeMarks = nodes.map((node) => {
+      const { width, height } = getNodeSize(node);
+      if (node.isSticky) {
+        const labelLines = wrapText(node.label, 18, 2);
+        const descriptionLines = node.description ? wrapText(node.description, 24, 6) : [];
+        const textLines = [...labelLines, ...descriptionLines];
+        const baseY = node.y - height / 2 + 26;
+        const lineHeight = 14;
+        const text = textLines
+          .map((line, idx) => {
+            const y = baseY + idx * lineHeight;
+            const weight = idx < labelLines.length ? "700" : "500";
+            const color = idx < labelLines.length ? palette.foreground : palette.mutedForeground;
+            return `<tspan x=\"${node.x - width / 2 + 14}\" y=\"${y}\" font-weight=\"${weight}\" fill=\"${color}\">${escapeXml(line)}</tspan>`;
+          })
+          .join("");
+        return `
+          <g>
+            <rect x=\"${node.x - width / 2}\" y=\"${node.y - height / 2}\" width=\"${width}\" height=\"${height}\" fill=\"${node.color || "#ffffff"}\" stroke=\"rgba(0,0,0,0.1)\" stroke-width=\"1\" rx=\"10\" />
+            <text font-family=\"${fontFamily}\" font-size=\"12\">${text}</text>
+          </g>`;
+      }
+
+      const colors = getNodeExportColors(node.category, palette);
+      const radius = node.category === "main" ? 16 : 12;
+      return `
+        <g>
+          <rect x=\"${node.x - width / 2}\" y=\"${node.y - height / 2}\" width=\"${width}\" height=\"${height}\" rx=\"${radius}\" fill=\"${colors.fill}\" stroke=\"${colors.stroke}\" stroke-width=\"2\" />
+          <text x=\"${node.x}\" y=\"${node.y}\" text-anchor=\"middle\" dominant-baseline=\"middle\" font-family=\"${fontFamily}\" font-size=\"${node.category === "main" ? 14 : 12}\" font-weight=\"700\" fill=\"${colors.text}\">${escapeXml(node.label)}</text>
+        </g>`;
+    });
+
+    const svgText = `
+      <svg xmlns=\"http://www.w3.org/2000/svg\" width=\"${exportWidth}\" height=\"${exportHeight}\" viewBox=\"${viewBoxX} ${viewBoxY} ${exportWidth} ${exportHeight}\">
+        <rect x=\"${viewBoxX}\" y=\"${viewBoxY}\" width=\"${exportWidth}\" height=\"${exportHeight}\" fill=\"#ffffff\" />
+        ${connectionPaths.join("")}
+        ${nodeMarks.join("")}
+      </svg>
+    `;
+
+    return { svgText, width: exportWidth, height: exportHeight };
+  };
+
+  const svgToImage = (svgText: string) =>
+    new Promise<HTMLImageElement>((resolve, reject) => {
+      const img = new Image();
+      const encoded = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgText)}`;
+      img.onload = () => {
+        resolve(img);
+      };
+      img.onerror = () => {
+        reject(new Error("No se pudo cargar la imagen"));
+      };
+      img.src = encoded;
+    });
+
+  const downloadBlob = (blob: Blob, filename: string) => {
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.href = url;
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const exportAsPng = async () => {
+    const data = buildExportSvg();
+    if (!data) return;
+
+    const img = await svgToImage(data.svgText);
+    const scale = 2;
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(data.width * scale);
+    canvas.height = Math.round(data.height * scale);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.setTransform(scale, 0, 0, scale, 0, 0);
+    ctx.drawImage(img, 0, 0);
+
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob((b) => resolve(b), "image/png")
+    );
+    if (!blob) return;
+    downloadBlob(blob, `${mapTitle || "mapa"}.png`);
+    toast.success("Mapa exportado en PNG");
+  };
+
+  const exportAsPdf = async () => {
+    const data = buildExportSvg();
+    if (!data) return;
+    const img = await svgToImage(data.svgText);
+    const scale = 2;
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(data.width * scale);
+    canvas.height = Math.round(data.height * scale);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.setTransform(scale, 0, 0, scale, 0, 0);
+    ctx.drawImage(img, 0, 0);
+
+    const pngDataUrl = canvas.toDataURL("image/png");
+    const orientation = data.width > data.height ? "landscape" : "portrait";
+    const pdf = new jsPDF({
+      orientation,
+      unit: "pt",
+      format: [data.width, data.height],
+    });
+    pdf.addImage(pngDataUrl, "PNG", 0, 0, data.width, data.height);
+    pdf.save(`${mapTitle || "mapa"}.pdf`);
+    toast.success("Mapa exportado en PDF");
+  };
+
+  const exportAsJson = () => {
+    const payload = {
+      title: mapTitle,
+      nodes,
+      exportedAt: new Date().toISOString(),
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {
+      type: "application/json;charset=utf-8",
+    });
+    downloadBlob(blob, `${mapTitle || "mapa"}.json`);
+    toast.success("Mapa exportado en JSON");
+  };
 
   const avatars = [
     "https://api.dicebear.com/7.x/avataaars/svg?seed=Felix",
