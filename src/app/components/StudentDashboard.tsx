@@ -170,7 +170,7 @@ export default function StudentDashboard() {
             </Link>
             <button
               onClick={handleLogout}
-              className="flex items-center gap-2 text-muted-foreground hover:text-destructive transition-colors text-sm font-medium"
+              className="flex cursor-pointer items-center gap-2 text-muted-foreground hover:text-destructive transition-colors text-sm font-medium"
             >
               <LogOut className="w-4 h-4" />
               <span>Salir</span>

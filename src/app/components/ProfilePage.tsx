@@ -88,7 +88,8 @@ export default function ProfilePage() {
         <div className="container mx-auto flex items-center gap-4">
           <Link
             to="/dashboard/student"
-            className="text-gray-500 hover:text-gray-900 transition-colors"
+            className="w-10 h-10 rounded-full border border-border bg-card flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            aria-label="Volver al dashboard"
           >
             <ArrowLeft className="w-5 h-5" />
           </Link>

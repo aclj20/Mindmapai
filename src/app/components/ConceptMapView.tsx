@@ -756,8 +756,8 @@ export default function ConceptMapView() {
             </button>
           </div>
           <div className="flex items-center gap-2">
-             <button className="w-10 h-10 flex items-center justify-center text-muted-foreground hover:text-foreground"><Search className="w-5 h-5" /></button>
-             <button className="w-10 h-10 flex items-center justify-center text-muted-foreground hover:text-foreground"><Bell className="w-5 h-5" /></button>
+             {/* <button className="w-10 h-10 flex items-center justify-center text-muted-foreground hover:text-foreground"><Search className="w-5 h-5" /></button> */}
+             {/* <button className="w-10 h-10 flex items-center justify-center text-muted-foreground hover:text-foreground"><Bell className="w-5 h-5" /></button> */}
              <button className="w-10 h-10 rounded-full bg-muted border border-border overflow-hidden">
                 <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Camila" alt="User" />
              </button>
@@ -1007,7 +1007,7 @@ export default function ConceptMapView() {
                        Resumen
                        {activeTab === "resumen" && <motion.div layoutId="tab" className="absolute bottom-0 left-0 w-full h-0.5 bg-primary" />}
                     </button>
-                    <button 
+                    {/* <button 
                       onClick={() => setActiveTab("notas")}
                       className={`px-4 py-2 text-xs font-bold transition-all relative ${
                         activeTab === "notas" ? "text-primary" : "text-muted-foreground"
@@ -1015,7 +1015,7 @@ export default function ConceptMapView() {
                     >
                        Notas
                        {activeTab === "notas" && <motion.div layoutId="tab" className="absolute bottom-0 left-0 w-full h-0.5 bg-primary" />}
-                    </button>
+                    </button> */}
                  </div>
               </div>
 
@@ -1120,7 +1120,7 @@ export default function ConceptMapView() {
                 )}
               </div>
 
-              <div className="p-6 border-t border-border flex gap-3">
+              {/* <div className="p-6 border-t border-border flex gap-3">
                  <button className="flex-1 py-3 rounded-xl bg-primary text-primary-foreground font-bold text-xs shadow-lg shadow-primary/20">
                     Exportar concepto
                  </button>
@@ -1130,7 +1130,7 @@ export default function ConceptMapView() {
                  <button className="p-3 rounded-xl border border-border text-destructive hover:bg-destructive/10">
                     <Trash2 className="w-4 h-4" />
                  </button>
-              </div>
+              </div> */}
             </motion.div>
           )}
         </AnimatePresence>
@@ -1208,7 +1208,7 @@ export default function ConceptMapView() {
               </Dialog.Close>
             </div>
             <div className="space-y-3">
-              {["PNG", "PDF", "JSON"].map((format) => (
+              {["PNG", "PDF"].map((format) => (
                 <button
                   key={format}
                   onClick={() => handleExport(format)}
@@ -1225,7 +1225,6 @@ export default function ConceptMapView() {
                       <div className="text-xs font-medium text-muted-foreground group-hover:text-primary/70 transition-colors">
                         {format === "PNG" && "Imagen de alta resolución"}
                         {format === "PDF" && "Documento listo para imprimir"}
-                        {format === "JSON" && "Datos estructurados para devs"}
                       </div>
                     </div>
                   </div>
