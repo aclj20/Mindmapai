@@ -376,14 +376,18 @@ export default function ConceptMapView() {
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;");
 
-  const wrapText = (text: string, maxChars: number, maxLines: number) => {
+  const wrapText = (text: string, maxWidth: number, maxLines: number, font: string) => {
     const words = text.split(/\s+/).filter(Boolean);
     const lines: string[] = [];
     let current = "";
+    const ctx = document.createElement("canvas").getContext("2d");
+    if (!ctx) return [text];
+    ctx.font = font;
 
     words.forEach((word) => {
       const next = current ? `${current} ${word}` : word;
-      if (next.length > maxChars && current) {
+      const nextWidth = ctx.measureText(next).width;
+      if (nextWidth > maxWidth && current) {
         lines.push(current);
         current = word;
       } else {
@@ -405,13 +409,63 @@ export default function ConceptMapView() {
     const bounds = getMapBounds();
     const padding = 40;
     const exportWidth = Math.max(bounds.width + padding * 2, 800);
-    const exportHeight = Math.max(bounds.height + padding * 2, 600);
     const viewBoxX = bounds.x - padding;
     const viewBoxY = bounds.y - padding;
 
     const palette = getExportPalette();
     const rawFontFamily = getComputedStyle(document.body).fontFamily || "Arial, sans-serif";
     const fontFamily = rawFontFamily.split(",")[0].replace(/"/g, "").trim() || "Arial";
+
+    const descriptionItems = nodes
+      .filter((node) => node.description && node.description.trim())
+      .map((node) => ({
+        label: node.label.trim(),
+        description: node.description?.trim() ?? "",
+      }));
+
+    const descriptionTitle = descriptionItems.length > 0 ? "Descripciones" : "";
+    const descriptionBlockWidth = exportWidth - padding * 2;
+    const descriptionX = viewBoxX + padding;
+    const descriptionStartY = bounds.y + bounds.height + padding * 2;
+    const descriptionLineHeight = 16;
+    const descriptionPaddingY = 16;
+    const descriptionGap = 8;
+    const descriptionTextWidth = descriptionBlockWidth;
+
+    let descriptionContentY = descriptionStartY + descriptionLineHeight;
+    const descriptionTextElements: string[] = [];
+
+    descriptionItems.forEach((item, index) => {
+      const labelLines = wrapText(item.label, descriptionTextWidth, 2, `700 13px ${fontFamily}`);
+      const descriptionLines = wrapText(item.description, descriptionTextWidth, 10, `500 12px ${fontFamily}`);
+
+      labelLines.forEach((line) => {
+        descriptionTextElements.push(
+          `<text x=\"${descriptionX}\" y=\"${descriptionContentY}\" font-family=\"${fontFamily}\" font-size=\"13\" font-weight=\"700\" fill=\"${palette.foreground}\">${escapeXml(line)}</text>`
+        );
+        descriptionContentY += descriptionLineHeight;
+      });
+
+      descriptionLines.forEach((line) => {
+        descriptionTextElements.push(
+          `<text x=\"${descriptionX}\" y=\"${descriptionContentY}\" font-family=\"${fontFamily}\" font-size=\"12\" font-weight=\"500\" fill=\"${palette.mutedForeground}\">${escapeXml(line)}</text>`
+        );
+        descriptionContentY += descriptionLineHeight;
+      });
+
+      if (index < descriptionItems.length - 1) {
+        descriptionContentY += descriptionGap;
+      }
+    });
+
+    const descriptionContentBottom = descriptionTextElements.length > 0
+      ? descriptionContentY
+      : descriptionStartY + descriptionLineHeight;
+    const descriptionHeight = descriptionItems.length > 0
+      ? (descriptionContentBottom - descriptionStartY) + descriptionPaddingY * 2
+      : 0;
+
+    const exportHeight = Math.max(bounds.height + padding * 2 + descriptionHeight, 600 + descriptionHeight);
 
     const connectionPaths = nodes.flatMap((node) =>
       node.connections.map((connId) => {
@@ -427,8 +481,10 @@ export default function ConceptMapView() {
     const nodeMarks = nodes.map((node) => {
       const { width, height } = getNodeSize(node);
       if (node.isSticky) {
-        const labelLines = wrapText(node.label, 18, 2);
-        const descriptionLines = node.description ? wrapText(node.description, 24, 6) : [];
+        const labelLines = wrapText(node.label, width - 28, 2, `700 12px ${fontFamily}`);
+        const descriptionLines = node.description
+          ? wrapText(node.description, width - 28, 6, `500 11px ${fontFamily}`)
+          : [];
         const textLines = [...labelLines, ...descriptionLines];
         const baseY = node.y - height / 2 + 26;
         const lineHeight = 14;
@@ -456,16 +512,40 @@ export default function ConceptMapView() {
         </g>`;
     });
 
+    const descriptionSection = descriptionItems.length > 0
+      ? `
+        <g>
+          <rect x=\"${descriptionX - 12}\" y=\"${descriptionStartY - descriptionPaddingY}\" width=\"${descriptionBlockWidth + 24}\" height=\"${descriptionHeight}\" fill=\"${palette.card}\" stroke=\"${palette.border}\" stroke-width=\"1\" rx=\"14\" />
+          <text x=\"${descriptionX}\" y=\"${descriptionStartY}\" font-family=\"${fontFamily}\" font-size=\"14\" font-weight=\"700\" fill=\"${palette.foreground}\">${escapeXml(descriptionTitle)}</text>
+          ${descriptionTextElements.join("")}
+        </g>`
+      : "";
+
     const svgText = `
       <svg xmlns=\"http://www.w3.org/2000/svg\" width=\"${exportWidth}\" height=\"${exportHeight}\" viewBox=\"${viewBoxX} ${viewBoxY} ${exportWidth} ${exportHeight}\">
         <rect x=\"${viewBoxX}\" y=\"${viewBoxY}\" width=\"${exportWidth}\" height=\"${exportHeight}\" fill=\"#ffffff\" />
         ${connectionPaths.join("")}
         ${nodeMarks.join("")}
+        ${descriptionSection}
       </svg>
     `;
 
     return { svgText, width: exportWidth, height: exportHeight };
   };
+
+  const handleCenterMap = useCallback(() => {
+    const svg = svgRef.current;
+    if (!svg || nodes.length === 0) return;
+    const mainNode = nodes.find((node) => node.category === "main") ?? nodes[0];
+    if (!mainNode) return;
+    const rect = svg.getBoundingClientRect();
+    const centerX = rect.width / 2;
+    const centerY = rect.height / 2;
+    setPan({
+      x: centerX - mainNode.x * zoom,
+      y: centerY - mainNode.y * zoom,
+    });
+  }, [nodes, zoom]);
 
   const svgToImage = (svgText: string) =>
     new Promise<HTMLImageElement>((resolve, reject) => {
@@ -704,7 +784,7 @@ export default function ConceptMapView() {
               <button onClick={() => setZoom(z => Math.min(2, z + 0.1))} className="p-2 rounded-lg text-muted-foreground hover:bg-muted"><Plus className="w-4 h-4" /></button>
            </div>
            <div className="flex items-center gap-2 p-1.5 bg-card border border-border rounded-xl shadow-lg">
-              <button onClick={() => setPan({x: 0, y: 0})} className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold text-muted-foreground hover:bg-muted">
+                <button onClick={handleCenterMap} className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold text-muted-foreground hover:bg-muted">
                  <Maximize className="w-3.5 h-3.5" /> Centrar mapa
               </button>
               <div className="w-px h-4 bg-border" />
