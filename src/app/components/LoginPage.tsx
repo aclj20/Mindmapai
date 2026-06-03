@@ -42,11 +42,7 @@ export default function LoginPage() {
       localStorage.setItem("token", data.token);
       localStorage.setItem("user", JSON.stringify(data.user));
 
-      if (data.user.role === "student") {
-        navigate("/dashboard/student");
-      } else {
-        navigate("/dashboard/teacher");
-      }
+      navigate("/dashboard");
     } catch {
       setError("No se pudo conectar al servidor. ¿Está el backend corriendo?");
     } finally {
@@ -85,51 +81,7 @@ export default function LoginPage() {
 
         <div className="p-8 rounded-2xl bg-card border border-border shadow-xl">
           <form onSubmit={handleSubmit} className="space-y-6">
-            {!isLogin && (
-              <div className="mb-6">
-                <label className="block text-sm font-semibold text-foreground mb-3 uppercase tracking-wider text-[10px]">
-                  SELECCIONA TU ROL
-                </label>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setRole("student")}
-                    className={`cursor-pointer p-4 rounded-xl border transition-all flex flex-col items-center justify-center gap-2 ${
-                      role === "student"
-                        ? "border-primary bg-primary-subtle shadow-sm ring-4 ring-primary/5"
-                        : "border-border bg-muted/50 hover:bg-muted"
-                    }`}
-                  >
-                    <GraduationCap
-                      className={`w-6 h-6 ${role === "student" ? "text-primary" : "text-muted-foreground"}`}
-                    />
-                    <div
-                      className={`text-sm font-bold ${role === "student" ? "text-primary" : "text-muted-foreground"}`}
-                    >
-                      Estudiante
-                    </div>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setRole("teacher")}
-                    className={`cursor-pointer p-4 rounded-xl border transition-all flex flex-col items-center justify-center gap-2 ${
-                      role === "teacher"
-                        ? "border-primary bg-primary-subtle shadow-sm ring-4 ring-primary/5"
-                        : "border-border bg-muted/50 hover:bg-muted"
-                    }`}
-                  >
-                    <User
-                      className={`w-6 h-6 ${role === "teacher" ? "text-primary" : "text-muted-foreground"}`}
-                    />
-                    <div
-                      className={`text-sm font-bold ${role === "teacher" ? "text-primary" : "text-muted-foreground"}`}
-                    >
-                      Docente
-                    </div>
-                  </button>
-                </div>
-              </div>
-            )}
+
 
             {!isLogin && (
               <div>

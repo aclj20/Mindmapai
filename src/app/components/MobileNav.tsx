@@ -6,7 +6,7 @@ export default function MobileNav() {
   const location = useLocation();
 
   const navItems = [
-    { path: "/dashboard/student", icon: Home, label: "Inicio" },
+    { path: "/dashboard", icon: Home, label: "Inicio" },
     { path: "/community", icon: Compass, label: "Explorar" },
     { path: "/map/create", icon: PlusCircle, label: "Crear", highlight: true },
     { path: "/leaderboard", icon: Trophy, label: "Ranking" },

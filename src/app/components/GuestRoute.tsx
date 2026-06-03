@@ -9,8 +9,7 @@ export default function GuestRoute({ children }: Props) {
   const user = getAuthUser();
 
   if (user) {
-    const dest = user.role === "teacher" ? "/dashboard/teacher" : "/dashboard/student";
-    return <Navigate to={dest} replace />;
+    return <Navigate to="/dashboard" replace />;
   }
 
   return <>{children}</>;

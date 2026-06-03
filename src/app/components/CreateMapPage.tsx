@@ -73,13 +73,16 @@ export default function CreateMapPage() {
     const timers = startProgressAnimation();
 
     try {
+      const searchParams = new URLSearchParams(window.location.search);
+      const group_id = searchParams.get("group_id");
+
       const res = await fetch(`${API_URL}/maps/generate`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${getToken()}`,
         },
-        body: JSON.stringify({ text }),
+        body: JSON.stringify({ text, group_id: group_id ? parseInt(group_id) : null }),
       });
 
       timers.forEach(clearTimeout);
@@ -132,8 +135,12 @@ export default function CreateMapPage() {
     const timers = startProgressAnimation();
 
     try {
+      const searchParams = new URLSearchParams(window.location.search);
+      const group_id = searchParams.get("group_id");
+
       const formData = new FormData();
       formData.append("file", selectedFile);
+      if (group_id) formData.append("group_id", group_id);
 
       const res = await fetch(`${API_URL}/maps/generate/file`, {
         method: "POST",

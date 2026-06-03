@@ -1,9 +1,9 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { getToken } from "../hooks/useAuth";
+import { getToken, logout, getAvatarInitials, getAuthUser } from "../hooks/useAuth";
 import { jsPDF } from "jspdf";
 
 const API_URL = "http://localhost:3001/api";
-import { Link, useParams } from "react-router";
+import { Link, useParams, useNavigate } from "react-router";
 import {
   ZoomIn,
   ZoomOut,
@@ -41,8 +41,15 @@ import {
   X,
   Volume2,
   VolumeX,
+  Sparkles,
+  Trophy,
+  HelpCircle,
+  Award,
+  ChevronRight,
+  GraduationCap
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import confetti from "canvas-confetti";
 import * as Dialog from "@radix-ui/react-dialog";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { toast } from "sonner";
@@ -64,6 +71,22 @@ interface Node {
 }
 
 export default function ConceptMapView() {
+  const navigate = useNavigate();
+  const authUser = getAuthUser();
+
+  const handleFetchResponse = useCallback(async (r: Response) => {
+    if (r.status === 401) {
+      logout();
+      navigate("/login");
+      throw new Error("Sesión vencida. Inicia sesión de nuevo.");
+    }
+    const data = await r.json();
+    if (!r.ok) {
+      throw new Error(data.message || "Error al realizar la petición");
+    }
+    return data;
+  }, [navigate]);
+
   const { id } = useParams();
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -88,6 +111,373 @@ export default function ConceptMapView() {
   const [loading, setLoading] = useState(true);
   const [isPrivate, setIsPrivate] = useState(false);
   const [isReading, setIsReading] = useState(false);
+  const [ownerName, setOwnerName] = useState("");
+  const [createdAt, setCreatedAt] = useState("");
+
+  // Estados de barra de herramientas y edición
+  const [activeTool, setActiveTool] = useState<"select" | "concept" | "text" | "shape" | "eraser">("select");
+  const [draggedNodeId, setDraggedNodeId] = useState<string | null>(null);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [showCreateNodeModal, setShowCreateNodeModal] = useState(false);
+  const [newNodeCoords, setNewNodeCoords] = useState({ x: 0, y: 0 });
+  const [newNodeType, setNewNodeType] = useState<"concept" | "text" | "shape">("concept");
+  const [newNodeLabel, setNewNodeLabel] = useState("");
+
+  // Colaboración y Permisos
+  const [userRole, setUserRole] = useState<"owner" | "editor" | "viewer" | null>(null);
+  const [sharingInfo, setSharingInfo] = useState<{
+    is_public: boolean;
+    invite_code: string | null;
+    collaborators: { user_id: number; role: "editor" | "viewer"; name: string; email: string }[];
+  } | null>(null);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState<"editor" | "viewer">("editor");
+  const [sharingLoading, setSharingLoading] = useState(false);
+
+  // Estados del Tutor IA
+  const [showAIChat, setShowAIChat] = useState(false);
+  const [aiChatQuery, setAiChatQuery] = useState("");
+  const [aiChatHistory, setAiChatHistory] = useState<{ sender: "user" | "ai"; text: string; suggestions?: { label: string; description: string }[] }[]>([]);
+  const [aiLoading, setAiLoading] = useState(false);
+  
+  // Estados para quiz
+  const [showQuizModal, setShowQuizModal] = useState(false);
+  const [quizQuestions, setQuizQuestions] = useState<{ id: number; question: string; options: string[]; answerIndex: number; explanation: string }[]>([]);
+  const [quizLoading, setQuizLoading] = useState(false);
+  const [quizStarted, setQuizStarted] = useState(false);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [selectedAnswerIndex, setSelectedAnswerIndex] = useState<number | null>(null);
+  const [quizScore, setQuizScore] = useState(0);
+  const [correctCount, setCorrectCount] = useState(0);
+  const [showExplanation, setShowExplanation] = useState(false);
+  const [quizCompleted, setQuizCompleted] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
+
+  const saveMapState = useCallback((currentNodes: Node[]) => {
+    const postConnections: { from_node_id: number; to_node_id: number }[] = [];
+    currentNodes.forEach((n) => {
+      (n.connections || []).forEach((cid) => {
+        postConnections.push({
+          from_node_id: parseInt(n.id),
+          to_node_id: parseInt(cid),
+        });
+      });
+    });
+
+    return fetch(`${API_URL}/maps/${id}/nodes`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${getToken()}`,
+      },
+      body: JSON.stringify({
+        nodes: currentNodes.map(n => ({
+          id: parseInt(n.id),
+          x: Math.round(n.x),
+          y: Math.round(n.y),
+          label: n.label,
+          category: n.category || 'concept',
+          description: n.description || '',
+          tags: n.tags || [],
+          stats: n.stats || {},
+          is_sticky: n.isSticky ? 1 : 0,
+          color: n.color || null
+        })),
+        connections: postConnections
+      })
+    })
+      .then((r) => {
+        if (!r.ok) throw new Error("Error al persistir el estado del mapa");
+        return r.json();
+      })
+      .catch((err) => {
+        console.error(err);
+        toast.error("No se pudo guardar el estado del mapa en el servidor.");
+      });
+  }, [id]);
+
+  const handleConsultAI = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!aiChatQuery.trim() || aiLoading) return;
+
+    const queryText = aiChatQuery.trim();
+    setAiChatQuery("");
+    setAiChatHistory((prev) => [...prev, { sender: "user", text: queryText }]);
+    setAiLoading(true);
+
+    fetch(`${API_URL}/maps/${id}/consult-ai`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${getToken()}`,
+      },
+      body: JSON.stringify({ query: queryText }),
+    })
+      .then((r) => {
+        if (!r.ok) throw new Error("Error en la consulta con la IA");
+        return r.json();
+      })
+      .then((data) => {
+        setAiChatHistory((prev) => [
+          ...prev,
+          {
+            sender: "ai",
+            text: data.explanation,
+            suggestions: data.suggested_nodes || [],
+          },
+        ]);
+      })
+      .catch(() => {
+        toast.error("El tutor IA no pudo responder en este momento.");
+        setAiChatHistory((prev) => [
+          ...prev,
+          { sender: "ai", text: "Lo siento, tuve un problema al procesar tu consulta. Por favor intenta de nuevo." },
+        ]);
+      })
+      .finally(() => setAiLoading(false));
+  };
+
+  const handleInsertSuggestions = (suggestions: { label: string; description: string }[], suggestedConnections: { from: string; to: string }[]) => {
+    if (!suggestions || suggestions.length === 0) return;
+
+    const mainNode = nodes.find(n => n.category === 'main') || nodes[0];
+    const refX = mainNode ? mainNode.x : 500;
+    const refY = mainNode ? mainNode.y : 350;
+
+    const maxExistingId = nodes.reduce((max, n) => Math.max(max, isNaN(Number(n.id)) ? 0 : Number(n.id)), 0);
+    let nextId = maxExistingId + 1;
+
+    const addedNodes: Node[] = [];
+    const updatedNodes = nodes.map(n => ({ ...n, connections: [...n.connections] }));
+
+    suggestions.forEach((s, idx) => {
+      const angle = (idx * 2 * Math.PI) / suggestions.length;
+      const x = Math.round(refX + 220 * Math.cos(angle));
+      const y = Math.round(refY + 220 * Math.sin(angle));
+      const newIdStr = String(nextId++);
+
+      const newNode: Node = {
+        id: newIdStr,
+        x,
+        y,
+        label: s.label,
+        category: 'concept',
+        description: s.description,
+        tags: [],
+        stats: {},
+        isSticky: false,
+        connections: []
+      };
+      addedNodes.push(newNode);
+      updatedNodes.push(newNode);
+    });
+
+    const labelToIdMap = new Map<string, string>();
+    updatedNodes.forEach(n => labelToIdMap.set(n.label.toLowerCase().trim(), n.id));
+
+    if (suggestedConnections && suggestedConnections.length > 0) {
+      suggestedConnections.forEach((conn) => {
+        const fromId = labelToIdMap.get(conn.from.toLowerCase().trim());
+        const toId = labelToIdMap.get(conn.to.toLowerCase().trim());
+        if (fromId && toId) {
+          const fromNode = updatedNodes.find(n => n.id === fromId);
+          if (fromNode && !fromNode.connections.includes(toId)) {
+            fromNode.connections.push(toId);
+          }
+        }
+      });
+    } else {
+      if (mainNode) {
+        addedNodes.forEach((n) => {
+          const mainNodeInList = updatedNodes.find(un => un.id === mainNode.id);
+          if (mainNodeInList && !mainNodeInList.connections.includes(n.id)) {
+            mainNodeInList.connections.push(n.id);
+          }
+        });
+      }
+    }
+
+    saveMapState(updatedNodes)
+      .then(() => {
+        setNodes(updatedNodes);
+        toast.success("¡Conceptos sugeridos agregados al mapa conceptual!");
+      });
+  };
+
+  const handleStartQuiz = () => {
+    setShowQuizModal(true);
+    setQuizLoading(true);
+    setQuizStarted(false);
+    setQuizCompleted(false);
+
+    fetch(`${API_URL}/maps/${id}/quiz/generate`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${getToken()}` },
+    })
+      .then((r) => {
+        if (!r.ok) throw new Error("No se pudo generar el quiz");
+        return r.json();
+      })
+      .then((data) => {
+        setQuizQuestions(data.questions || []);
+        setQuizStarted(true);
+        setCurrentQuestionIndex(0);
+        setSelectedAnswerIndex(null);
+        setQuizScore(0);
+        setCorrectCount(0);
+        setShowExplanation(false);
+      })
+      .catch(() => {
+        toast.error("No se pudo generar el quiz en este momento. Asegúrate de tener al menos 2 conceptos creados.");
+        setShowQuizModal(false);
+      })
+      .finally(() => setQuizLoading(false));
+  };
+
+  const handleSelectOption = (index: number) => {
+    if (selectedAnswerIndex !== null) return;
+    setSelectedAnswerIndex(index);
+    const isCorrect = index === quizQuestions[currentQuestionIndex].answerIndex;
+    if (isCorrect) {
+      setCorrectCount((c) => c + 1);
+      setQuizScore((s) => s + 25);
+      toast.success("¡Respuesta correcta!");
+    } else {
+      toast.error("Respuesta incorrecta.");
+    }
+    setShowExplanation(true);
+  };
+
+  const handleNextQuestion = () => {
+    setSelectedAnswerIndex(null);
+    setShowExplanation(false);
+    if (currentQuestionIndex + 1 < quizQuestions.length) {
+      setCurrentQuestionIndex((prev) => prev + 1);
+    } else {
+      setQuizCompleted(true);
+      confetti({
+        particleCount: 150,
+        spread: 80,
+        origin: { y: 0.6 }
+      });
+    }
+  };
+
+  const handleSubmitQuiz = () => {
+    setActionLoading(true);
+    fetch(`${API_URL}/maps/${id}/quiz/submit`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${getToken()}`,
+      },
+      body: JSON.stringify({
+        score: quizScore,
+        total_questions: quizQuestions.length,
+        correct_answers: correctCount,
+      }),
+    })
+      .then((r) => {
+        if (!r.ok) throw new Error("Error al guardar el quiz");
+        return r.json();
+      })
+      .then((data) => {
+        toast.success(`Cuestionario guardado con éxito. Obtuviste ${data.score} puntos y ganaste ${data.xpReward} XP.`);
+        setShowQuizModal(false);
+      })
+      .catch((err) => {
+        toast.error(err.message || "Error al registrar el puntaje.");
+      })
+      .finally(() => {
+        setActionLoading(false);
+      });
+  };
+
+  const fetchSharingInfo = useCallback(() => {
+    if (!id || userRole !== 'owner') return;
+    setSharingLoading(true);
+    fetch(`${API_URL}/maps/${id}/sharing`, {
+      headers: { Authorization: `Bearer ${getToken()}` },
+    })
+      .then(handleFetchResponse)
+      .then(setSharingInfo)
+      .catch(() => {})
+      .finally(() => setSharingLoading(false));
+  }, [id, userRole, handleFetchResponse]);
+
+  useEffect(() => {
+    if (showShareModal && userRole === 'owner') {
+      fetchSharingInfo();
+    }
+  }, [showShareModal, userRole, fetchSharingInfo]);
+
+  const handleGenerateInviteCode = () => {
+    fetch(`${API_URL}/maps/${id}/sharing/invite-code`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${getToken()}` },
+    })
+      .then((r) => r.json())
+      .then(() => {
+        toast.success("Código de invitación generado");
+        fetchSharingInfo();
+      })
+      .catch(() => toast.error("Error al generar el código"));
+  };
+
+  const handleAddCollaborator = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inviteEmail.trim()) return;
+
+    fetch(`${API_URL}/maps/${id}/collaborators`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${getToken()}`,
+      },
+      body: JSON.stringify({ email: inviteEmail.trim(), role: inviteRole }),
+    })
+      .then(async (r) => {
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.message || "Error al invitar");
+        return data;
+      })
+      .then(() => {
+        toast.success("Colaborador agregado");
+        setInviteEmail("");
+        fetchSharingInfo();
+      })
+      .catch((err) => toast.error(err.message));
+  };
+
+  const handleChangeRole = (userId: number, role: "editor" | "viewer") => {
+    fetch(`${API_URL}/maps/${id}/collaborators/${userId}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${getToken()}`,
+      },
+      body: JSON.stringify({ role }),
+    })
+      .then((r) => {
+        if (!r.ok) throw new Error("Error al cambiar rol");
+        toast.success("Rol actualizado");
+        fetchSharingInfo();
+      })
+      .catch((err) => toast.error(err.message));
+  };
+
+  const handleRemoveCollaborator = (userId: number) => {
+    fetch(`${API_URL}/maps/${id}/collaborators/${userId}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${getToken()}` },
+    })
+      .then((r) => {
+        if (!r.ok) throw new Error("Error al remover colaborador");
+        toast.success("Colaborador removido");
+        fetchSharingInfo();
+      })
+      .catch((err) => toast.error(err.message));
+  };
 
   useEffect(() => {
     if (!id) return;
@@ -96,7 +486,7 @@ export default function ConceptMapView() {
     })
       .then(async (r) => {
         if (r.status === 403) { setIsPrivate(true); setLoading(false); return null; }
-        return r.json();
+        return handleFetchResponse(r);
       })
       .then((data) => {
         if (!data) return;
@@ -104,6 +494,14 @@ export default function ConceptMapView() {
         setIsPublic(!!data.is_public);
         setLiked(!!data.liked);
         setLikeCount(data.like_count ?? 0);
+        setUserRole(data.userRole || null);
+        setOwnerName(data.owner_name ?? "Propietario");
+        setCreatedAt(data.created_at || "");
+        setSharingInfo({
+          is_public: !!data.is_public,
+          invite_code: data.invite_code || null,
+          collaborators: data.collaborators || [],
+        });
 
         // Construir mapa de nodos con conexiones vacías
         const nodeMap = new Map<number, Node>(
@@ -135,14 +533,14 @@ export default function ConceptMapView() {
       })
       .catch(() => setMapTitle("Error al cargar"))
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [id, handleFetchResponse]);
 
   const fetchComments = useCallback(() => {
     if (!id) return;
     fetch(`${API_URL}/maps/${id}/comments`, {
       headers: { Authorization: `Bearer ${getToken()}` },
     })
-      .then((r) => r.json())
+      .then(handleFetchResponse)
       .then((data) =>
         setComments(
           data.map((c: { id: number; user: string; text: string; created_at: string }) => ({
@@ -154,7 +552,7 @@ export default function ConceptMapView() {
         )
       )
       .catch(() => {});
-  }, [id]);
+  }, [id, handleFetchResponse]);
 
   useEffect(() => {
     if (showComments) fetchComments();
@@ -168,13 +566,101 @@ export default function ConceptMapView() {
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    if (isDragging) {
+    if (draggedNodeId && userRole !== "viewer") {
+      const dx = (e.clientX - dragStart.x) / zoom;
+      const dy = (e.clientY - dragStart.y) / zoom;
+      setNodes((prevNodes) =>
+        prevNodes.map((n) => {
+          if (n.id === draggedNodeId) {
+            return { ...n, x: n.x + dx, y: n.y + dy };
+          }
+          return n;
+        })
+      );
+      setDragStart({ x: e.clientX, y: e.clientY });
+    } else if (isDragging) {
       setPan({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y });
     }
   };
 
   const handleMouseUp = () => {
+    if (draggedNodeId) {
+      setDraggedNodeId(null);
+      setNodes((currentNodes) => {
+        saveMapState(currentNodes);
+        return currentNodes;
+      });
+    }
     setIsDragging(false);
+  };
+
+  const handleDeleteNode = (nodeId: string) => {
+    if (userRole === "viewer") return;
+
+    const targetNode = nodes.find(n => n.id === nodeId);
+    if (targetNode?.category === "main") {
+      toast.error("El concepto principal no puede ser eliminado");
+      return;
+    }
+
+    const updatedNodes = nodes
+      .filter(n => n.id !== nodeId)
+      .map(n => ({
+        ...n,
+        connections: n.connections.filter(cid => cid !== nodeId)
+      }));
+
+    setNodes(updatedNodes);
+    if (selectedNode === nodeId) {
+      setSelectedNode(null);
+    }
+    saveMapState(updatedNodes);
+    toast.success("Concepto eliminado");
+  };
+
+  const handleDeleteConnection = (fromId: string, toId: string) => {
+    if (userRole === "viewer") return;
+    
+    const updatedNodes = nodes.map(node => {
+      if (node.id === fromId) {
+        return {
+          ...node,
+          connections: node.connections.filter(cid => cid !== toId)
+        };
+      }
+      return node;
+    });
+    setNodes(updatedNodes);
+    saveMapState(updatedNodes);
+    toast.success("Conexión eliminada");
+  };
+
+  const handleCreateNodeSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newNodeLabel.trim()) return;
+
+    const newId = String(Date.now());
+    
+    const newNode: Node = {
+      id: newId,
+      x: newNodeCoords.x,
+      y: newNodeCoords.y,
+      label: newNodeLabel.trim(),
+      category: "concept",
+      description: "",
+      tags: [],
+      stats: {},
+      isSticky: false,
+      color: undefined,
+      connections: [],
+    };
+
+    const updatedNodes = [...nodes, newNode];
+    setNodes(updatedNodes);
+    setShowCreateNodeModal(false);
+    saveMapState(updatedNodes);
+    setActiveTool("select");
+    toast.success("Concepto creado exitosamente");
   };
 
   const handleLike = () => {
@@ -286,17 +772,17 @@ export default function ConceptMapView() {
     return category === "main" ? 56 : 40;
   };
 
-  const getNodeColors = (category: string, isHovered: boolean, isSelected: boolean) => {
+  const getNodeColors = (node: Node, isHovered: boolean, isSelected: boolean) => {
     if (isSelected) {
-      return { fill: "var(--primary-subtle)", stroke: "var(--primary)", text: "var(--primary)" };
+      return { fill: node.color ? `${node.color}cc` : "var(--primary-subtle)", stroke: "var(--primary)", text: "var(--primary)" };
     }
     if (isHovered) {
-      return { fill: "var(--primary-subtle)", stroke: "var(--border)", text: "var(--primary)" };
+      return { fill: node.color ? `${node.color}99` : "var(--primary-subtle)", stroke: "var(--border)", text: "var(--primary)" };
     }
-    if (category === "main") {
+    if (node.category === "main") {
       return { fill: "var(--primary)", stroke: "var(--primary-hover)", text: "var(--primary-foreground)" };
     }
-    return { fill: "var(--card)", stroke: "var(--border)", text: "var(--foreground)" };
+    return { fill: node.color || "var(--card)", stroke: "var(--border)", text: "var(--foreground)" };
   };
 
   const selectedNodeData = nodes.find((n) => n.id === selectedNode);
@@ -706,16 +1192,39 @@ export default function ConceptMapView() {
         </div>
 
         <div className="flex items-center gap-4">
-          <div className="flex -space-x-2">
-            {avatars.map((av, i) => (
-              <div key={i} className="w-8 h-8 rounded-full border-2 border-background overflow-hidden bg-muted">
-                <img src={av} alt="Collaborator" />
+          {(() => {
+            const allMembers = [
+              { name: ownerName || "Propietario", role: "owner" },
+              ...(sharingInfo?.collaborators || []).map((c) => ({
+                name: c.name,
+                role: c.role,
+              })),
+            ];
+            return (
+              <div className="flex -space-x-2">
+                {allMembers.slice(0, 3).map((m, i) => {
+                  const avatarUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(m.name)}&mouth=smile,default&eyes=default,happy,wink`;
+                  return (
+                    <div
+                      key={i}
+                      className="w-8 h-8 rounded-full border-2 border-background overflow-hidden bg-muted flex items-center justify-center shadow-sm"
+                      title={`${m.name} (${m.role === 'owner' ? 'Propietario' : m.role === 'editor' ? 'Editor' : 'Lector'})`}
+                    >
+                      <img src={avatarUrl} alt={m.name} className="w-full h-full object-cover" />
+                    </div>
+                  );
+                })}
+                {allMembers.length > 3 && (
+                  <div
+                    className="w-8 h-8 rounded-full border-2 border-background bg-muted text-muted-foreground text-[10px] font-bold flex items-center justify-center"
+                    title={`${allMembers.length - 3} colaboradores más`}
+                  >
+                    +{allMembers.length - 3}
+                  </div>
+                )}
               </div>
-            ))}
-            <div className="w-8 h-8 rounded-full border-2 border-background bg-primary-subtle text-primary text-[10px] font-bold flex items-center justify-center">
-              +4
-            </div>
-          </div>
+            );
+          })()}
           
           <div className="flex items-center gap-2 px-1 py-1 bg-muted rounded-xl border border-border">
             <button
@@ -750,6 +1259,25 @@ export default function ConceptMapView() {
               <MessageCircle className="w-4 h-4" />
               <span className="absolute top-1 right-1 w-2 h-2 bg-primary rounded-full border border-background"></span>
             </button>
+            <button
+              onClick={() => {
+                setShowAIChat(!showAIChat);
+                setShowComments(false);
+              }}
+              className={`flex items-center justify-center w-9 h-9 rounded-lg transition-all ${
+                showAIChat ? "bg-primary-subtle text-primary" : "text-muted-foreground hover:bg-card"
+              }`}
+              title="Consultar Tutor IA"
+            >
+              <Sparkles className="w-4 h-4 text-purple-600" />
+            </button>
+            <button
+              onClick={handleStartQuiz}
+              className="flex items-center justify-center w-9 h-9 rounded-lg text-muted-foreground hover:bg-card"
+              title="Realizar Quiz"
+            >
+              <Trophy className="w-4 h-4 text-emerald-600" />
+            </button>
             <div className="w-px h-6 bg-border mx-1" />
             <button onClick={() => setShowShareModal(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground font-bold text-xs hover:bg-primary-hover transition-all shadow-md shadow-primary/20">
                <Share2 className="w-3.5 h-3.5" /> Compartir
@@ -758,24 +1286,112 @@ export default function ConceptMapView() {
           <div className="flex items-center gap-2">
              {/* <button className="w-10 h-10 flex items-center justify-center text-muted-foreground hover:text-foreground"><Search className="w-5 h-5" /></button> */}
              {/* <button className="w-10 h-10 flex items-center justify-center text-muted-foreground hover:text-foreground"><Bell className="w-5 h-5" /></button> */}
-             <button className="w-10 h-10 rounded-full bg-muted border border-border overflow-hidden">
-                <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Camila" alt="User" />
-             </button>
+              <button className="w-10 h-10 rounded-full bg-muted border border-border overflow-hidden" title={authUser?.name || "Usuario"}>
+                 <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(authUser?.name || "Usuario")}&mouth=smile,default&eyes=default,happy,wink`} alt="User" />
+              </button>
           </div>
         </div>
       </nav>
 
       <div className="flex-1 relative overflow-hidden flex bg-[#f8f9fb]" style={{ backgroundImage: "radial-gradient(#e5e7eb 1px, transparent 1px)", backgroundSize: "24px 24px" }}>
-        <div className="absolute left-6 top-1/2 -translate-y-1/2 z-20 flex flex-col gap-2 p-2 bg-card border border-border rounded-2xl shadow-xl">
-           <button className="p-3 rounded-xl bg-primary-subtle text-primary"><MousePointer2 className="w-5 h-5" /></button>
-           <button className="p-3 rounded-xl text-muted-foreground hover:bg-muted"><LayoutGrid className="w-5 h-5" /></button>
-           <button className="p-3 rounded-xl text-muted-foreground hover:bg-muted"><Type className="w-5 h-5" /></button>
-           <button className="p-3 rounded-xl text-muted-foreground hover:bg-muted"><Square className="w-5 h-5" /></button>
-           <button className="p-3 rounded-xl text-muted-foreground hover:bg-muted"><StickyNote className="w-5 h-5" /></button>
-           <div className="h-px bg-border mx-2" />
-           <button className="p-3 rounded-xl text-muted-foreground hover:bg-muted"><Eraser className="w-5 h-5" /></button>
-           <button className="p-3 rounded-xl text-muted-foreground hover:bg-muted"><MoreHorizontal className="w-5 h-5" /></button>
-        </div>
+        {userRole === "viewer" && (
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 px-4 py-2 bg-amber-50 border border-amber-200 rounded-full text-xs font-semibold text-amber-700 shadow-sm flex items-center gap-1.5 animate-pulse">
+            <Lock className="w-3.5 h-3.5" /> Modo de sólo lectura
+          </div>
+        )}
+
+        {userRole !== "viewer" && (
+          <div className="absolute left-6 top-1/2 -translate-y-1/2 z-20 flex flex-col gap-2 p-2 bg-card border border-border rounded-2xl shadow-xl">
+             <button
+               onClick={() => setActiveTool("select")}
+               className={`p-3 rounded-xl transition-all ${
+                 activeTool === "select"
+                   ? "bg-primary-subtle text-primary"
+                   : "text-muted-foreground hover:bg-muted"
+               }`}
+               title="Seleccionar y Mover"
+             >
+               <MousePointer2 className="w-5 h-5" />
+             </button>
+             <button
+               onClick={() => setActiveTool("concept")}
+               className={`p-3 rounded-xl transition-all ${
+                 activeTool === "concept"
+                   ? "bg-primary-subtle text-primary"
+                   : "text-muted-foreground hover:bg-muted"
+               }`}
+               title="Crear Concepto"
+             >
+               <Square className="w-5 h-5" />
+             </button>
+             <button
+               onClick={() => setShowDetailsModal(true)}
+               className="p-3 rounded-xl text-muted-foreground hover:bg-muted transition-all"
+               title="Detalles del Mapa"
+             >
+               <StickyNote className="w-5 h-5" />
+             </button>
+             <div className="h-px bg-border mx-2" />
+             <button
+               onClick={() => setActiveTool("eraser")}
+               className={`p-3 rounded-xl transition-all ${
+                 activeTool === "eraser"
+                   ? "bg-red-100 text-red-600 dark:bg-red-950/30 dark:text-red-400"
+                   : "text-muted-foreground hover:bg-muted"
+               }`}
+               title="Borrador"
+             >
+               <Eraser className="w-5 h-5" />
+             </button>
+             <DropdownMenu.Root>
+               <DropdownMenu.Trigger asChild>
+                 <button className="p-3 rounded-xl text-muted-foreground hover:bg-muted transition-all" title="Más Opciones">
+                   <MoreHorizontal className="w-5 h-5" />
+                 </button>
+               </DropdownMenu.Trigger>
+               <DropdownMenu.Portal>
+                 <DropdownMenu.Content
+                   className="z-50 min-w-[160px] bg-card border border-border rounded-xl p-1.5 shadow-xl animate-in fade-in-50 slide-in-from-top-2 focus:outline-none"
+                   align="start"
+                   side="right"
+                   sideOffset={8}
+                 >
+                   <DropdownMenu.Item
+                     onClick={() => setShowShareModal(true)}
+                     className="flex items-center gap-2 px-3 py-2 text-xs font-bold text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg cursor-pointer outline-none transition-colors"
+                   >
+                     <Share2 className="w-4 h-4 text-primary" />
+                     Compartir
+                   </DropdownMenu.Item>
+                   <DropdownMenu.Item
+                     onClick={() => {
+                       setShowAIChat(!showAIChat);
+                       setShowComments(false);
+                     }}
+                     className="flex items-center gap-2 px-3 py-2 text-xs font-bold text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg cursor-pointer outline-none transition-colors"
+                   >
+                     <Sparkles className="w-4 h-4 text-purple-600" />
+                     Tutor IA
+                   </DropdownMenu.Item>
+                   <DropdownMenu.Item
+                     onClick={handleStartQuiz}
+                     className="flex items-center gap-2 px-3 py-2 text-xs font-bold text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg cursor-pointer outline-none transition-colors"
+                   >
+                     <Trophy className="w-4 h-4 text-emerald-600" />
+                     Realizar Quiz
+                   </DropdownMenu.Item>
+                   <DropdownMenu.Item
+                     onClick={() => setShowExportModal(true)}
+                     className="flex items-center gap-2 px-3 py-2 text-xs font-bold text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg cursor-pointer outline-none transition-colors"
+                   >
+                     <Download className="w-4 h-4 text-blue-600" />
+                     Exportar
+                   </DropdownMenu.Item>
+                 </DropdownMenu.Content>
+               </DropdownMenu.Portal>
+             </DropdownMenu.Root>
+          </div>
+        )}
 
         <div className="absolute left-1/2 -translate-x-1/2 bottom-8 z-20 flex items-center gap-4">
            <div className="flex items-center gap-2 p-1.5 bg-card border border-border rounded-xl shadow-lg">
@@ -834,15 +1450,28 @@ export default function ConceptMapView() {
         <div className="flex-1 relative">
           <svg
             ref={svgRef}
-            className="w-full h-full cursor-grab active:cursor-grabbing outline-none"
+            className={`w-full h-full outline-none ${activeTool === "eraser" ? "" : "cursor-grab active:cursor-grabbing"}`}
+            style={activeTool === "eraser" ? { cursor: `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23ef4444' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M20 20H7L3 16l8-8 8 8-3 3M17 17l-3-3'/></svg>") 4 16, pointer` } : {}}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseUp}
             onClick={(e) => {
-               if ((e.target as HTMLElement).tagName === "svg") {
-                  setSelectedNode(null);
-               }
+              if ((e.target as HTMLElement).tagName === "svg") {
+                setSelectedNode(null);
+                
+                if (userRole !== "viewer" && activeTool === "concept") {
+                  const rect = svgRef.current?.getBoundingClientRect();
+                  if (rect) {
+                    const clickX = (e.clientX - rect.left - pan.x) / zoom;
+                    const clickY = (e.clientY - rect.top - pan.y) / zoom;
+                    setNewNodeCoords({ x: clickX, y: clickY });
+                    setNewNodeType("concept");
+                    setNewNodeLabel("");
+                    setShowCreateNodeModal(true);
+                  }
+                }
+              }
             }}
           >
             <g transform={`translate(${pan.x}, ${pan.y}) scale(${zoom})`}>
@@ -857,16 +1486,40 @@ export default function ConceptMapView() {
                   const path = `M ${parent.x} ${parent.y} C ${parent.x} ${parent.y + dy/2}, ${child.x} ${child.y - dy/2}, ${child.x} ${child.y}`;
                   
                   return (
-                    <motion.path
-                      key={`${parent.id}-${child.id}`}
-                      d={path}
-                      fill="none"
-                      stroke="var(--primary)"
-                      strokeWidth="2"
-                      strokeOpacity="0.2"
-                      initial={{ pathLength: 0 }}
-                      animate={{ pathLength: 1 }}
-                    />
+                    <g key={`${parent.id}-${child.id}`}>
+                      {/* Invisible wide path for easier clicking when using the eraser tool */}
+                      <path
+                        d={path}
+                        fill="none"
+                        stroke="transparent"
+                        strokeWidth="12"
+                        style={{ pointerEvents: activeTool === "eraser" ? "auto" : "none" }}
+                        className=""
+                        onClick={(e) => {
+                          if (userRole !== "viewer" && activeTool === "eraser") {
+                            e.stopPropagation();
+                            handleDeleteConnection(parent.id, child.id);
+                          }
+                        }}
+                      />
+                      <motion.path
+                        d={path}
+                        fill="none"
+                        stroke="var(--primary)"
+                        strokeWidth="2"
+                        strokeOpacity="0.2"
+                        initial={{ pathLength: 0 }}
+                        animate={{ pathLength: 1 }}
+                        style={{ pointerEvents: activeTool === "eraser" ? "auto" : "none" }}
+                        className={activeTool === "eraser" ? "hover:stroke-red-500 transition-colors" : ""}
+                        onClick={(e) => {
+                          if (userRole !== "viewer" && activeTool === "eraser") {
+                            e.stopPropagation();
+                            handleDeleteConnection(parent.id, child.id);
+                          }
+                        }}
+                      />
+                    </g>
                   );
                 })
               )}
@@ -876,7 +1529,7 @@ export default function ConceptMapView() {
               {nodes.map((node) => {
                 const isSelected = selectedNode === node.id;
                 const isHovered = hoveredNode === node.id;
-                const colors = getNodeColors(node.category, isHovered, isSelected);
+                const colors = getNodeColors(node, isHovered, isSelected);
                 const width = node.isSticky ? 160 : getNodeWidth(node.label, node.category);
                 const height = node.isSticky ? 160 : getNodeHeight(node.category);
 
@@ -886,16 +1539,34 @@ export default function ConceptMapView() {
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
                     whileHover={{ scale: 1.05 }}
-                    onClick={(e) => { e.stopPropagation(); setSelectedNode(node.id); }}
+                    onMouseDown={(e) => {
+                      if (userRole !== "viewer" && activeTool === "select") {
+                        e.stopPropagation();
+                        setDraggedNodeId(node.id);
+                        setDragStart({ x: e.clientX, y: e.clientY });
+                      }
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (userRole !== "viewer" && activeTool === "eraser") {
+                        handleDeleteNode(node.id);
+                      } else {
+                        setSelectedNode(node.id);
+                      }
+                    }}
                     onMouseEnter={() => setHoveredNode(node.id)}
                     onMouseLeave={() => setHoveredNode(null)}
                     onKeyDown={(e) => {
                       if (e.key === "Enter" || e.key === " ") {
                         e.preventDefault();
-                        setSelectedNode(node.id);
+                        if (userRole !== "viewer" && activeTool === "eraser") {
+                          handleDeleteNode(node.id);
+                        } else {
+                          setSelectedNode(node.id);
+                        }
                       }
                     }}
-                    className="cursor-pointer"
+                    className={activeTool === "eraser" ? "" : "cursor-pointer"}
                     role="button"
                     tabIndex={0}
                     aria-label={
@@ -1043,19 +1714,35 @@ export default function ConceptMapView() {
                             const connNode = nodes.find(n => n.id === connId);
                             if (!connNode) return null;
                             return (
-                              <button
+                              <div
                                 key={connId}
-                                onClick={() => setSelectedNode(connId)}
-                                className="flex items-start gap-3 p-3 bg-muted border border-border rounded-xl hover:border-primary/40 hover:bg-primary-subtle transition-colors text-left group"
+                                className="flex items-center gap-2 group/conn"
                               >
-                                <div className="w-2 h-2 rounded-full bg-primary/50 mt-1.5 shrink-0 group-hover:bg-primary transition-colors" />
-                                <div>
-                                  <p className="text-xs font-bold text-foreground group-hover:text-primary transition-colors">{connNode.label}</p>
-                                  {connNode.description && (
-                                    <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">{connNode.description}</p>
-                                  )}
-                                </div>
-                              </button>
+                                <button
+                                  onClick={() => setSelectedNode(connId)}
+                                  className="flex-1 flex items-start gap-3 p-3 bg-muted border border-border rounded-xl hover:border-primary/40 hover:bg-primary-subtle transition-colors text-left group"
+                                >
+                                  <div className="w-2 h-2 rounded-full bg-primary/50 mt-1.5 shrink-0 group-hover:bg-primary transition-colors" />
+                                  <div>
+                                    <p className="text-xs font-bold text-foreground group-hover:text-primary transition-colors">{connNode.label}</p>
+                                    {connNode.description && (
+                                      <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">{connNode.description}</p>
+                                    )}
+                                  </div>
+                                </button>
+                                {userRole !== "viewer" && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDeleteConnection(selectedNodeData.id, connId);
+                                    }}
+                                    className="p-3 text-destructive hover:bg-destructive/10 border border-transparent hover:border-destructive/20 rounded-xl transition-all shrink-0"
+                                    title="Eliminar conexión"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                )}
+                              </div>
                             );
                           })}
                         </div>
@@ -1102,6 +1789,86 @@ export default function ConceptMapView() {
                              ))}
                           </div>
                        </div>
+                    )}
+
+                    {/* Editar concepto */}
+                    {userRole !== "viewer" && selectedNodeData.category !== "main" && (
+                      <div className="space-y-4 border-t border-border pt-4">
+                        <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Editar Concepto</h4>
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-medium text-muted-foreground">Etiqueta</label>
+                          <input
+                            type="text"
+                            value={selectedNodeData.label}
+                            onChange={(e) => {
+                              const newLabel = e.target.value;
+                              setNodes(prev => prev.map(n => n.id === selectedNodeData.id ? { ...n, label: newLabel } : n));
+                            }}
+                            onBlur={() => saveMapState(nodes)}
+                            className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-primary/20 text-foreground"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-medium text-muted-foreground">Descripción</label>
+                          <textarea
+                            value={selectedNodeData.description || ""}
+                            onChange={(e) => {
+                              const newDesc = e.target.value;
+                              setNodes(prev => prev.map(n => n.id === selectedNodeData.id ? { ...n, description: newDesc } : n));
+                            }}
+                            onBlur={() => saveMapState(nodes)}
+                            rows={3}
+                            className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none text-foreground"
+                            placeholder="Añade una descripción..."
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Conectar con otro concepto */}
+                    {userRole !== "viewer" && (
+                      <div className="space-y-4 border-t border-border pt-4">
+                        <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Nueva Conexión</h4>
+                        <div className="flex gap-2">
+                          <select
+                            id="connect-node-select"
+                            className="flex-1 px-3 py-2 bg-muted border border-border rounded-lg text-xs font-semibold focus:outline-none text-foreground"
+                            defaultValue=""
+                          >
+                            <option value="" disabled>Seleccionar concepto...</option>
+                            {nodes
+                              .filter(n => n.id !== selectedNodeData.id && !selectedNodeData.connections.includes(n.id))
+                              .map(n => (
+                                <option key={n.id} value={n.id}>{n.label}</option>
+                              ))
+                            }
+                          </select>
+                          <button
+                            onClick={() => {
+                              const selectEl = document.getElementById("connect-node-select") as HTMLSelectElement;
+                              const targetId = selectEl?.value;
+                              if (targetId) {
+                                const updatedNodes = nodes.map(n => {
+                                  if (n.id === selectedNodeData.id) {
+                                    return {
+                                      ...n,
+                                      connections: [...(n.connections || []), targetId]
+                                    };
+                                  }
+                                  return n;
+                                });
+                                setNodes(updatedNodes);
+                                saveMapState(updatedNodes);
+                                selectEl.value = "";
+                                toast.success("Conexión creada");
+                              }
+                            }}
+                            className="px-3 py-2 bg-primary hover:bg-primary-hover text-primary-foreground text-xs font-bold rounded-lg transition-colors shrink-0"
+                          >
+                            Conectar
+                          </button>
+                        </div>
+                      </div>
                     )}
                   </>
                 ) : (
@@ -1193,7 +1960,245 @@ export default function ConceptMapView() {
             </motion.div>
           )}
         </AnimatePresence>
-      </div>
+
+        {/* Tutor IA Sidebar */}
+        <AnimatePresence>
+          {showAIChat && (
+            <motion.div
+              initial={{ x: 400, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: 400, opacity: 0 }}
+              transition={{ type: "spring", bounce: 0, duration: 0.4 }}
+              className="absolute top-0 right-0 h-full w-[360px] bg-card border-l border-border shadow-2xl z-40 flex flex-col"
+            >
+              <div className="flex items-center justify-between p-6 border-b border-border">
+                 <h2 className="text-lg font-bold text-foreground tracking-tight flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-primary" />
+                    Tutor IA Didáctico
+                 </h2>
+                 <button 
+                    onClick={() => setShowAIChat(false)}
+                    className="p-2 -mr-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                 >
+                    <X className="w-5 h-5" />
+                 </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                {aiChatHistory.length === 0 && (
+                  <div className="text-center py-6 text-muted-foreground text-xs font-semibold">
+                    <Sparkles className="w-8 h-8 text-primary/55 mx-auto mb-2" />
+                    ¡Hola! Soy tu tutor IA. Pregúntame sobre el tema del mapa conceptual para expandir tus conocimientos y sugerir nuevos nodos.
+                  </div>
+                )}
+                {aiChatHistory.map((msg, i) => (
+                  <div key={i} className={`space-y-1.5 ${msg.sender === "user" ? "text-right" : ""}`}>
+                    <div className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">
+                      {msg.sender === "user" ? "Tú" : "Tutor IA"}
+                    </div>
+                    <div className={`p-4 rounded-2xl border text-xs leading-relaxed ${
+                      msg.sender === "user" 
+                        ? "bg-primary text-primary-foreground border-primary ml-8 text-left" 
+                        : "bg-muted border-border mr-8 text-left"
+                    }`}>
+                      {msg.text}
+
+                      {msg.suggestions && msg.suggestions.length > 0 && (
+                        <div className="mt-4 pt-4 border-t border-border/20 space-y-3">
+                          <p className="text-[11px] font-bold text-primary flex items-center gap-1">
+                            <Sparkles className="w-3 h-3 fill-primary" />
+                            Conceptos sugeridos:
+                          </p>
+                          <div className="space-y-2">
+                            {msg.suggestions.map((s, idx) => (
+                              <div key={idx} className="p-3 bg-card border border-border rounded-xl text-xs">
+                                <span className="font-bold text-foreground">{s.label}</span>
+                                <p className="text-[10px] text-muted-foreground mt-1 leading-relaxed">{s.description}</p>
+                              </div>
+                            ))}
+                          </div>
+                          {userRole !== "viewer" && (
+                            <button
+                              onClick={() => {
+                                const mainNode = nodes.find(un => un.category === "main") || nodes[0];
+                                handleInsertSuggestions(msg.suggestions || [], msg.suggestions?.map(s => ({ from: mainNode?.label || '', to: s.label })) || []);
+                              }}
+                              className="cursor-pointer mt-2 w-full py-2.5 rounded-xl bg-primary text-primary-foreground hover:bg-primary-hover transition-colors font-bold text-xs shadow-sm flex items-center justify-center gap-1.5"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                              Insertar en el Mapa
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                {aiLoading && (
+                  <div className="space-y-1.5">
+                    <div className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">Tutor IA</div>
+                    <div className="bg-muted border border-border p-4 rounded-2xl mr-8 text-xs italic text-muted-foreground">
+                      Pensando una explicación didáctica...
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="p-6 border-t border-border bg-muted/50">
+                 <form onSubmit={handleConsultAI} className="relative">
+                    <input 
+                      type="text" 
+                      value={aiChatQuery}
+                      onChange={(e) => setAiChatQuery(e.target.value)}
+                      placeholder="Ej. ¿Cómo se conecta X con Y?"
+                      className="w-full pl-4 pr-12 py-3 rounded-xl bg-card border border-border text-xs focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all shadow-sm font-semibold"
+                    />
+                    <button 
+                      type="submit"
+                      disabled={aiLoading || !aiChatQuery.trim()}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-lg bg-primary text-white hover:bg-primary-hover transition-colors disabled:opacity-50"
+                    >
+                       <Send className="w-4 h-4" />
+                    </button>
+                 </form>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+      {/* Quiz Modal */}
+      <Dialog.Root open={showQuizModal} onOpenChange={setShowQuizModal}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 transition-opacity" />
+          <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-card rounded-2xl p-6 w-full max-w-md shadow-2xl z-50 border border-border max-h-[85vh] overflow-y-auto font-sans">
+            <div className="flex justify-between items-center mb-6 border-b border-border pb-3">
+              <Dialog.Title className="text-base font-bold text-foreground tracking-tight flex items-center gap-2">
+                <Trophy className="w-4 h-4 text-emerald-600 animate-bounce" />
+                Cuestionario de Aprendizaje
+              </Dialog.Title>
+              <Dialog.Close className="text-muted-foreground hover:text-foreground transition-colors p-1.5 rounded-lg hover:bg-muted">
+                <X className="w-4 h-4" />
+              </Dialog.Close>
+            </div>
+
+            {quizLoading && (
+              <div className="text-center py-10 space-y-4">
+                <div className="w-12 h-12 rounded-full bg-primary-subtle border border-primary/20 flex items-center justify-center mx-auto text-primary text-lg font-extrabold animate-spin">
+                  🧠
+                </div>
+                <p className="text-xs font-semibold text-muted-foreground">Generando preguntas didácticas sobre este mapa...</p>
+              </div>
+            )}
+
+            {quizStarted && !quizCompleted && quizQuestions.length > 0 && (
+              <div className="space-y-6">
+                <div className="flex justify-between items-center text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                  <span>Pregunta {currentQuestionIndex + 1} de {quizQuestions.length}</span>
+                  <span>Puntaje: {quizScore} pts</span>
+                </div>
+
+                <div className="p-4 bg-muted/50 rounded-xl border border-border">
+                  <h4 className="font-bold text-sm text-foreground leading-snug">
+                    {quizQuestions[currentQuestionIndex].question}
+                  </h4>
+                </div>
+
+                <div className="space-y-2.5">
+                  {quizQuestions[currentQuestionIndex].options.map((option, idx) => {
+                    const isSelected = selectedAnswerIndex === idx;
+                    const isCorrectOption = idx === quizQuestions[currentQuestionIndex].answerIndex;
+                    const hasAnswered = selectedAnswerIndex !== null;
+
+                    let buttonClass = "border-border bg-card hover:bg-muted/50";
+                    if (hasAnswered) {
+                      if (isCorrectOption) {
+                        buttonClass = "border-emerald-500 bg-emerald-50 text-emerald-700 font-bold shadow-sm shadow-emerald-500/5";
+                      } else if (isSelected) {
+                        buttonClass = "border-red-500 bg-red-50 text-red-700 font-bold shadow-sm shadow-red-500/5";
+                      } else {
+                        buttonClass = "opacity-60 border-border bg-card";
+                      }
+                    } else {
+                      buttonClass = "hover:border-primary/20 border-border bg-card cursor-pointer";
+                    }
+
+                    return (
+                      <button
+                        key={idx}
+                        disabled={hasAnswered}
+                        onClick={() => handleSelectOption(idx)}
+                        className={`w-full p-4 rounded-xl border transition-all text-left text-xs font-semibold flex items-center justify-between ${buttonClass}`}
+                      >
+                        <span>{option}</span>
+                        {hasAnswered && isCorrectOption && (
+                          <span className="text-emerald-600 font-extrabold text-[10px] uppercase tracking-wide">✓ Correcto</span>
+                        )}
+                        {hasAnswered && isSelected && !isCorrectOption && (
+                          <span className="text-red-600 font-extrabold text-[10px] uppercase tracking-wide">✗ Incorrecto</span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {showExplanation && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="p-4 bg-primary-subtle border border-primary/10 rounded-xl space-y-1.5 text-[11px] text-primary leading-relaxed"
+                  >
+                    <span className="font-bold uppercase tracking-wider flex items-center gap-1 text-[10px]">
+                      <GraduationCap className="w-3.5 h-3.5" /> Explicación del Tutor IA:
+                    </span>
+                    <p className="font-medium">{quizQuestions[currentQuestionIndex].explanation}</p>
+                  </motion.div>
+                )}
+
+                {selectedAnswerIndex !== null && (
+                  <button
+                    onClick={handleNextQuestion}
+                    className="cursor-pointer w-full py-3 rounded-xl bg-primary hover:bg-primary-hover text-primary-foreground font-semibold transition-colors text-xs shadow-md shadow-primary/10 flex items-center justify-center gap-1.5"
+                  >
+                    {currentQuestionIndex + 1 === quizQuestions.length ? "Ver Resultados" : "Siguiente Pregunta"}
+                  </button>
+                )}
+              </div>
+            )}
+
+            {quizCompleted && (
+              <div className="text-center py-4 space-y-6">
+                <div className="w-14 h-14 rounded-full bg-emerald-100 border border-emerald-200 flex items-center justify-center mx-auto text-emerald-600 font-extrabold text-xl animate-bounce">
+                  🎉
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold tracking-tight text-foreground">¡Cuestionario Completado!</h3>
+                  <p className="text-xs text-muted-foreground mt-1">Has demostrado tus conocimientos sobre el tema.</p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 max-w-sm mx-auto p-4 rounded-xl bg-muted border border-border">
+                  <div>
+                    <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">Respuestas</span>
+                    <p className="text-base font-extrabold text-foreground">{correctCount} de {quizQuestions.length}</p>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">Puntaje</span>
+                    <p className="text-base font-extrabold text-primary">{quizScore} pts</p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleSubmitQuiz}
+                  disabled={actionLoading}
+                  className="cursor-pointer w-full py-3 rounded-xl bg-primary hover:bg-primary-hover text-primary-foreground font-semibold transition-colors disabled:opacity-50 text-xs shadow-md shadow-primary/15"
+                >
+                  {actionLoading ? "Guardando..." : "Guardar y Finalizar"}
+                </button>
+              </div>
+            )}
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
+    </div>
 
       <Dialog.Root open={showExportModal} onOpenChange={setShowExportModal}>
         <Dialog.Portal>
@@ -1238,8 +2243,8 @@ export default function ConceptMapView() {
       <Dialog.Root open={showShareModal} onOpenChange={setShowShareModal}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 bg-foreground/30 backdrop-blur-sm z-50 transition-opacity" />
-          <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-card rounded-xl p-6 w-full max-w-md shadow-2xl z-50 border border-border">
-            <div className="flex justify-between items-center mb-6">
+          <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-card rounded-xl p-6 w-full max-w-md shadow-2xl z-50 border border-border max-h-[85vh] overflow-y-auto font-sans">
+            <div className="flex justify-between items-center mb-6 border-b border-border pb-3">
               <Dialog.Title className="text-xl font-bold text-foreground tracking-tight">
                 Compartir mapa
               </Dialog.Title>
@@ -1247,37 +2252,247 @@ export default function ConceptMapView() {
                 <X className="w-5 h-5" />
               </Dialog.Close>
             </div>
-            <div className="space-y-3">
-              <button
-                onClick={handleCopyLink}
-                className="w-full p-4 rounded-lg bg-card border border-border hover:border-primary/20 hover:bg-muted transition-all text-left group"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-md bg-muted flex items-center justify-center group-hover:bg-card border border-border group-hover:border-primary/20 transition-colors">
-                     <Copy className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
-                  </div>
-                  <div className="text-foreground font-semibold group-hover:text-primary transition-colors">Copiar enlace</div>
-                </div>
-              </button>
-{/*               {[
-                { name: "Twitter", icon: Twitter },
-                { name: "Facebook", icon: Facebook },
-              ].map((platform) => (
+            
+            <div className="space-y-6">
+              {/* Copiar Enlace siempre disponible */}
+              <div>
                 <button
-                  key={platform.name}
-                  onClick={() => handleShare(platform.name)}
-                  className="w-full p-4 rounded-lg bg-card border border-border hover:border-primary/20 hover:bg-muted transition-all text-left group"
+                  onClick={handleCopyLink}
+                  className="w-full p-4 rounded-xl bg-muted/50 border border-border hover:border-primary/20 hover:bg-muted transition-all text-left group flex items-center justify-between"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-md bg-muted flex items-center justify-center group-hover:bg-card border border-border group-hover:border-primary/20 transition-colors">
-                       <platform.icon className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
+                    <Copy className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                    <span className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">Copiar enlace del mapa</span>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                </button>
+              </div>
+
+              {userRole === "owner" && (
+                <>
+                  <div className="w-full h-px bg-border" />
+                  
+                  {/* Código de Invitación */}
+                  <div className="space-y-2">
+                    <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Código de Invitación</h4>
+                    {sharingInfo?.invite_code ? (
+                      <div className="flex items-center gap-2 p-3 bg-muted border border-border rounded-xl">
+                        <span className="text-lg font-extrabold tracking-widest text-primary flex-1 text-center font-mono">
+                          {sharingInfo.invite_code}
+                        </span>
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(sharingInfo.invite_code || "");
+                            toast.success("¡Código copiado!");
+                          }}
+                          className="px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-xs font-bold hover:bg-primary-hover transition-colors"
+                        >
+                          Copiar
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={handleGenerateInviteCode}
+                        className="w-full py-2.5 rounded-xl border border-dashed border-border hover:border-primary/30 text-xs font-bold text-muted-foreground hover:text-primary transition-all flex items-center justify-center gap-1.5"
+                      >
+                        <Plus className="w-4 h-4" /> Generar código de invitación
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="w-full h-px bg-border" />
+
+                  {/* Invitar por correo */}
+                  <form onSubmit={handleAddCollaborator} className="space-y-3">
+                    <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Agregar Colaborador</h4>
+                    <div className="flex gap-2">
+                      <input
+                        type="email"
+                        required
+                        value={inviteEmail}
+                        onChange={(e) => setInviteEmail(e.target.value)}
+                        placeholder="correo@ejemplo.com"
+                        className="flex-1 px-3 py-2 rounded-lg bg-muted border border-border text-xs focus:outline-none focus:ring-1 focus:ring-primary focus:border-transparent"
+                      />
+                      <select
+                        value={inviteRole}
+                        onChange={(e) => setInviteRole(e.target.value as any)}
+                        className="px-2 py-2 rounded-lg bg-muted border border-border text-xs text-foreground focus:outline-none"
+                      >
+                        <option value="editor">Editor</option>
+                        <option value="viewer">Lector</option>
+                      </select>
+                      <button
+                        type="submit"
+                        className="px-4 py-2 bg-primary hover:bg-primary-hover text-primary-foreground text-xs font-bold rounded-lg transition-colors"
+                      >
+                        Agregar
+                      </button>
                     </div>
-                    <div className="text-foreground font-semibold group-hover:text-primary transition-colors">
-                      Compartir en {platform.name}
+                  </form>
+
+                  <div className="w-full h-px bg-border" />
+
+                  {/* Lista de Colaboradores */}
+                  <div className="space-y-3">
+                    <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Colaboradores</h4>
+                    <div className="space-y-2 max-h-48 overflow-y-auto">
+                      <div className="flex items-center justify-between p-2 rounded-lg bg-muted/30 border border-border/40 text-xs">
+                        <div>
+                          <p className="font-bold text-foreground">Propietario (Tú)</p>
+                          <p className="text-[10px] text-muted-foreground">Dueño del mapa</p>
+                        </div>
+                        <span className="px-2 py-1 bg-primary-subtle text-primary border border-primary/10 rounded font-bold text-[10px] uppercase">Owner</span>
+                      </div>
+                      
+                      {sharingInfo?.collaborators?.map((c) => (
+                        <div key={c.user_id} className="flex items-center justify-between p-2 rounded-lg border border-border/40 text-xs hover:bg-muted/10 transition-all">
+                          <div>
+                            <p className="font-bold text-foreground">{c.name}</p>
+                            <p className="text-[10px] text-muted-foreground">{c.email}</p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <select
+                              value={c.role}
+                              onChange={(e) => handleChangeRole(c.user_id, e.target.value as any)}
+                              className="px-1.5 py-1 bg-muted border border-border rounded text-[10px] text-foreground focus:outline-none"
+                            >
+                              <option value="editor">Editor</option>
+                              <option value="viewer">Lector</option>
+                            </select>
+                            <button
+                              onClick={() => handleRemoveCollaborator(c.user_id)}
+                              className="p-1 text-destructive hover:bg-destructive/10 rounded transition-colors"
+                              title="Remover colaborador"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
+                </>
+              )}
+            </div>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
+
+      {/* Modal para crear un nuevo elemento en el lienzo */}
+      <Dialog.Root open={showCreateNodeModal} onOpenChange={setShowCreateNodeModal}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 bg-foreground/30 backdrop-blur-sm z-50 transition-opacity" />
+          <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-card rounded-xl p-6 w-full max-w-sm shadow-2xl z-50 border border-border">
+            <div className="flex justify-between items-center mb-6">
+              <Dialog.Title className="text-lg font-bold text-foreground tracking-tight">
+                Crear Concepto
+              </Dialog.Title>
+              <Dialog.Close className="text-muted-foreground hover:text-foreground transition-colors">
+                <X className="w-5 h-5" />
+              </Dialog.Close>
+            </div>
+            <form onSubmit={handleCreateNodeSubmit} className="space-y-4">
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                  Etiqueta del elemento
+                </label>
+                <input
+                  type="text"
+                  value={newNodeLabel}
+                  onChange={(e) => setNewNodeLabel(e.target.value)}
+                  placeholder="Ej. Neurona"
+                  required
+                  autoFocus
+                  className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium"
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <Dialog.Close asChild>
+                  <button
+                    type="button"
+                    className="px-4 py-2 border border-border hover:bg-muted text-muted-foreground text-xs font-bold rounded-lg transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                </Dialog.Close>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-primary hover:bg-primary-hover text-primary-foreground text-xs font-bold rounded-lg transition-colors"
+                >
+                  Crear
                 </button>
-              ))} */}
+              </div>
+            </form>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
+
+      {/* Modal de detalles del mapa */}
+      <Dialog.Root open={showDetailsModal} onOpenChange={setShowDetailsModal}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 bg-foreground/30 backdrop-blur-sm z-50 transition-opacity" />
+          <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-card rounded-xl p-6 w-full max-w-md shadow-2xl z-50 border border-border">
+            <div className="flex justify-between items-center mb-6">
+              <Dialog.Title className="text-xl font-bold text-foreground tracking-tight">
+                Detalles del mapa
+              </Dialog.Title>
+              <Dialog.Close className="text-muted-foreground hover:text-foreground transition-colors">
+                <X className="w-5 h-5" />
+              </Dialog.Close>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="p-4 bg-muted rounded-xl border border-border/50">
+                <h3 className="text-sm font-bold text-foreground mb-1">{mapTitle}</h3>
+                <p className="text-xs text-muted-foreground">Nombre del mapa mental</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-4 bg-muted rounded-xl border border-border/50">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">Autor</span>
+                  <span className="text-xs font-bold text-foreground">{ownerName}</span>
+                </div>
+                <div className="p-4 bg-muted rounded-xl border border-border/50">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">Creado el</span>
+                  <span className="text-xs font-bold text-foreground">
+                    {createdAt ? new Date(createdAt).toLocaleDateString("es-ES", {
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric"
+                    }) : "N/A"}
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-4 bg-muted rounded-xl border border-border/50">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">Conceptos</span>
+                  <span className="text-xs font-bold text-foreground">{nodes.length} nodos</span>
+                </div>
+                <div className="p-4 bg-muted rounded-xl border border-border/50">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">Visibilidad</span>
+                  <span className="text-xs font-bold text-foreground flex items-center gap-1.5 mt-0.5">
+                    {isPublic ? (
+                      <>
+                        <Globe className="w-3.5 h-3.5 text-primary" /> Público
+                      </>
+                    ) : (
+                      <>
+                        <Lock className="w-3.5 h-3.5 text-muted-foreground" /> Privado
+                      </>
+                    )}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-6">
+              <Dialog.Close asChild>
+                <button className="px-5 py-2.5 bg-primary hover:bg-primary-hover text-primary-foreground text-xs font-bold rounded-lg transition-colors shadow-md">
+                  Cerrar
+                </button>
+              </Dialog.Close>
             </div>
           </Dialog.Content>
         </Dialog.Portal>

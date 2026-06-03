@@ -1,8 +1,8 @@
 import { createBrowserRouter } from "react-router";
 import LandingPage from "./components/LandingPage";
 import LoginPage from "./components/LoginPage";
-import StudentDashboard from "./components/StudentDashboard";
-import TeacherDashboard from "./components/TeacherDashboard";
+import Dashboard from "./components/Dashboard";
+import GroupDetailPage from "./components/GroupDetailPage";
 import ConceptMapView from "./components/ConceptMapView";
 import Leaderboard from "./components/Leaderboard";
 import ProfilePage from "./components/ProfilePage";
@@ -40,18 +40,10 @@ export const router = createBrowserRouter([
     ),
   },
   {
-    path: "/dashboard/student",
+    path: "/dashboard",
     element: (
-      <PrivateRoute role="student">
-        <StudentDashboard />
-      </PrivateRoute>
-    ),
-  },
-  {
-    path: "/dashboard/teacher",
-    element: (
-      <PrivateRoute role="teacher">
-        <TeacherDashboard />
+      <PrivateRoute>
+        <Dashboard />
       </PrivateRoute>
     ),
   },
@@ -92,6 +84,14 @@ export const router = createBrowserRouter([
     element: (
       <PrivateRoute>
         <GroupsPage />
+      </PrivateRoute>
+    ),
+  },
+  {
+    path: "/groups/:id",
+    element: (
+      <PrivateRoute>
+        <GroupDetailPage />
       </PrivateRoute>
     ),
   },
