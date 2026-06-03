@@ -7,13 +7,12 @@ import {
   Plus,
   Trophy,
   Calendar,
-  Check,
   ClipboardList,
-  Sparkles,
   ChevronRight,
-  Eye,
   X,
-  GraduationCap
+  Star,
+  Zap,
+  Medal,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import * as Dialog from "@radix-ui/react-dialog";
@@ -40,6 +39,7 @@ interface ClassMap {
   created_at: string;
   owner_name: string;
   owner_id: number;
+  my_best_score: number; // -1 = no quiz done, 0-100 = best score
 }
 
 interface GroupDetail {
@@ -167,7 +167,7 @@ export default function GroupDetailPage() {
     );
   }
 
-  const isTeacher = group.myRole === "teacher";
+  const isTeacher = group.myRole === "admin" || group.myRole === "teacher";
 
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0 font-sans text-foreground">
@@ -248,47 +248,76 @@ export default function GroupDetailPage() {
             <div className="space-y-6">
               <div className="flex justify-between items-center">
                 <div>
-                  <h3 className="text-lg font-bold tracking-tight">Lienzos de la clase</h3>
-                  <p className="text-xs text-muted-foreground font-semibold">Cualquier miembro del grupo puede ver y editar estos mapas</p>
+                  <h3 className="text-lg font-bold tracking-tight">Mapas del grupo</h3>
+                  <p className="text-xs text-muted-foreground font-semibold">
+                    {isTeacher ? "Crea mapas y genera quizzes para tus estudiantes" : "Estudia los mapas y completa los quizzes para ganar puntos"}
+                  </p>
                 </div>
-                <Link
-                  to={`/map/create?group_id=${group.id}`}
-                  className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-primary hover:bg-primary-hover text-primary-foreground transition-all font-semibold text-xs shadow-md shadow-primary/10"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  Nuevo Mapa en esta Clase
-                </Link>
+                {isTeacher && (
+                  <Link
+                    to={`/map/create?group_id=${group.id}&group_name=${encodeURIComponent(group.name)}`}
+                    className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-primary hover:bg-primary-hover text-primary-foreground transition-all font-semibold text-xs shadow-md shadow-primary/10"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    Nuevo Mapa
+                  </Link>
+                )}
               </div>
 
               {group.maps.length === 0 ? (
                 <div className="text-center py-12 border border-dashed border-border rounded-xl bg-muted/20">
                   <Brain className="w-12 h-12 text-muted-foreground/40 mx-auto mb-3" />
                   <p className="text-sm font-semibold text-muted-foreground">No hay mapas conceptuales en este grupo</p>
-                  <Link to={`/map/create?group_id=${group.id}`} className="text-xs text-primary font-bold mt-1 inline-block hover:underline">
+                  <Link to={`/map/create?group_id=${group.id}&group_name=${encodeURIComponent(group.name)}`} className="text-xs text-primary font-bold mt-1 inline-block hover:underline">
                     ¡Crea el primer mapa grupal!
                   </Link>
                 </div>
               ) : (
                 <div className="grid sm:grid-cols-2 gap-4">
-                  {group.maps.map((map) => (
-                    <Link
-                      key={map.id}
-                      to={`/map/${map.public_id}`}
-                      className="p-5 rounded-xl bg-card border border-border hover:border-primary/20 hover:bg-muted/10 transition-all shadow-sm flex justify-between items-center group"
-                    >
-                      <div>
-                        <h4 className="font-bold text-base text-foreground group-hover:text-primary transition-colors leading-tight mb-2">
-                          {map.title}
-                        </h4>
-                        <div className="space-y-1 text-xs text-muted-foreground font-semibold">
-                          <p>Creado por: {map.owner_id === authUser?.id ? "Tú" : map.owner_name}</p>
-                          <p>{map.node_count} conceptos</p>
-                          <p>Fecha: {new Date(map.created_at + "Z").toLocaleDateString()}</p>
+                  {group.maps.map((map) => {
+                    const scored = map.my_best_score >= 0;
+                    const scoreColor = map.my_best_score >= 80
+                      ? "text-emerald-600 bg-emerald-50 border-emerald-200"
+                      : map.my_best_score >= 50
+                        ? "text-amber-600 bg-amber-50 border-amber-200"
+                        : "text-red-500 bg-red-50 border-red-200";
+                    return (
+                      <Link
+                        key={map.id}
+                        to={`/map/${map.public_id}`}
+                        className="p-5 rounded-xl bg-card border border-border hover:border-primary/20 hover:bg-muted/10 transition-all shadow-sm flex justify-between items-start group"
+                      >
+                        <div className="flex-1 min-w-0 pr-3">
+                          <h4 className="font-bold text-base text-foreground group-hover:text-primary transition-colors leading-tight mb-2">
+                            {map.title}
+                          </h4>
+                          <div className="space-y-1 text-xs text-muted-foreground font-semibold">
+                            <p>Por: {map.owner_id === authUser?.id ? "Tú" : map.owner_name}</p>
+                            <p>{map.node_count} conceptos</p>
+                          </div>
+                          {!scored && (
+                            <div className="mt-3 flex items-center gap-1 text-[11px] font-bold text-primary">
+                              <Zap className="w-3 h-3" />
+                              Hacer quiz · Gana puntos
+                            </div>
+                          )}
                         </div>
-                      </div>
-                      <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-all group-hover:translate-x-1" />
-                    </Link>
-                  ))}
+                        <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                          {scored ? (
+                            <div className={`flex items-center gap-1 text-xs font-extrabold px-2.5 py-1.5 rounded-lg border ${scoreColor}`}>
+                              <Star className="w-3 h-3" />
+                              {map.my_best_score}/100
+                            </div>
+                          ) : (
+                            <div className="text-[10px] font-bold text-muted-foreground bg-muted border border-border px-2 py-1 rounded-lg uppercase tracking-wider">
+                              Sin quiz
+                            </div>
+                          )}
+                          <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-all group-hover:translate-x-1" />
+                        </div>
+                      </Link>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -298,44 +327,96 @@ export default function GroupDetailPage() {
             <div className="space-y-6">
               <div>
                 <h3 className="text-lg font-bold tracking-tight">Ranking de Aprendizaje</h3>
-                <p className="text-xs text-muted-foreground font-semibold">La clasificación se ordena en base a la suma de los mejores puntajes de quizzes grupales</p>
+                <p className="text-xs text-muted-foreground font-semibold">Puntos acumulados de los mejores quizzes por mapa</p>
               </div>
 
+              {/* Podio top 3 */}
+              {group.members.length >= 3 && (
+                <div className="flex items-end justify-center gap-3 pt-4 pb-2">
+                  {/* 2do lugar */}
+                  {group.members[1] && (() => {
+                    const m = group.members[1];
+                    const initials = m.name.split(" ").map(n => n[0]).slice(0, 2).join("").toUpperCase();
+                    const isMe = m.id === authUser?.id;
+                    return (
+                      <div className="flex flex-col items-center gap-2">
+                        <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-sm border-2 ${isMe ? "border-primary bg-primary text-primary-foreground" : "border-gray-300 bg-gray-100 text-gray-700"}`}>{initials}</div>
+                        <div className="text-xs font-bold text-center text-muted-foreground max-w-[64px] truncate">{isMe ? "Tú" : m.name.split(" ")[0]}</div>
+                        <div className="w-16 h-16 bg-gray-100 border border-gray-200 rounded-t-lg flex flex-col items-center justify-center">
+                          <Medal className="w-4 h-4 text-gray-400 mb-0.5" />
+                          <span className="text-[10px] font-extrabold text-gray-500">{m.points} pts</span>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                  {/* 1er lugar */}
+                  {group.members[0] && (() => {
+                    const m = group.members[0];
+                    const initials = m.name.split(" ").map(n => n[0]).slice(0, 2).join("").toUpperCase();
+                    const isMe = m.id === authUser?.id;
+                    return (
+                      <div className="flex flex-col items-center gap-2">
+                        <Trophy className="w-5 h-5 text-amber-500" />
+                        <div className={`w-14 h-14 rounded-full flex items-center justify-center font-bold text-base border-2 ${isMe ? "border-primary bg-primary text-primary-foreground" : "border-amber-400 bg-amber-50 text-amber-700"}`}>{initials}</div>
+                        <div className="text-xs font-bold text-center text-foreground max-w-[72px] truncate">{isMe ? "Tú" : m.name.split(" ")[0]}</div>
+                        <div className="w-16 h-24 bg-amber-50 border border-amber-200 rounded-t-lg flex flex-col items-center justify-center">
+                          <span className="text-lg font-extrabold text-amber-600">1</span>
+                          <span className="text-[10px] font-extrabold text-amber-500">{m.points} pts</span>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                  {/* 3er lugar */}
+                  {group.members[2] && (() => {
+                    const m = group.members[2];
+                    const initials = m.name.split(" ").map(n => n[0]).slice(0, 2).join("").toUpperCase();
+                    const isMe = m.id === authUser?.id;
+                    return (
+                      <div className="flex flex-col items-center gap-2">
+                        <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-sm border-2 ${isMe ? "border-primary bg-primary text-primary-foreground" : "border-orange-300 bg-orange-50 text-orange-700"}`}>{initials}</div>
+                        <div className="text-xs font-bold text-center text-muted-foreground max-w-[64px] truncate">{isMe ? "Tú" : m.name.split(" ")[0]}</div>
+                        <div className="w-16 h-12 bg-orange-50 border border-orange-200 rounded-t-lg flex flex-col items-center justify-center">
+                          <Medal className="w-4 h-4 text-orange-400 mb-0.5" />
+                          <span className="text-[10px] font-extrabold text-orange-500">{m.points} pts</span>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+
+              {/* Lista completa */}
               <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
                 <div className="divide-y divide-border">
                   {group.members.map((member, idx) => {
                     const isMe = member.id === authUser?.id;
                     const initials = member.name.split(" ").map(n => n[0]).slice(0, 2).join("").toUpperCase();
+                    const maxPoints = group.members[0]?.points || 1;
+                    const pct = maxPoints > 0 ? Math.round((member.points / maxPoints) * 100) : 0;
+                    const isAdmin = member.role === "admin" || member.role === "teacher";
                     return (
                       <div
                         key={member.id}
-                        className={`p-4 flex items-center justify-between transition-colors ${
-                          isMe ? "bg-primary-subtle/50" : "hover:bg-muted/30"
-                        }`}
+                        className={`p-4 transition-colors ${isMe ? "bg-primary-subtle/50" : "hover:bg-muted/30"}`}
                       >
-                        <div className="flex items-center gap-4">
-                          <div
-                            className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs shadow-sm ${
-                              idx === 0
-                                ? "bg-amber-100 text-amber-700 border border-amber-200"
-                                : idx === 1
-                                  ? "bg-gray-100 text-gray-700 border border-gray-200"
-                                  : idx === 2
-                                    ? "bg-orange-100 text-orange-700 border border-orange-200"
-                                    : "bg-muted text-muted-foreground"
-                            }`}
-                          >
+                        <div className="flex items-center gap-3 mb-2">
+                          <div className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs shadow-sm flex-shrink-0 ${
+                            idx === 0 ? "bg-amber-100 text-amber-700 border border-amber-200"
+                            : idx === 1 ? "bg-gray-100 text-gray-700 border border-gray-200"
+                            : idx === 2 ? "bg-orange-100 text-orange-700 border border-orange-200"
+                            : "bg-muted text-muted-foreground"
+                          }`}>
                             {idx + 1}
                           </div>
-                          <div className="w-10 h-10 rounded-full bg-primary-subtle text-primary border border-primary/20 flex items-center justify-center font-bold text-sm shadow-sm">
+                          <div className="w-9 h-9 rounded-full bg-primary-subtle text-primary border border-primary/20 flex items-center justify-center font-bold text-sm shadow-sm flex-shrink-0">
                             {initials}
                           </div>
-                          <div>
-                            <p className="font-bold text-sm text-foreground flex items-center gap-1.5">
+                          <div className="flex-1 min-w-0">
+                            <p className="font-bold text-sm text-foreground flex items-center gap-1.5 flex-wrap">
                               {member.name}
-                              {member.role === "teacher" && (
+                              {isAdmin && (
                                 <span className="text-[9px] font-bold uppercase tracking-wider bg-primary text-primary-foreground px-1.5 py-0.5 rounded">
-                                  Docente
+                                  Admin
                                 </span>
                               )}
                               {isMe && (
@@ -344,12 +425,21 @@ export default function GroupDetailPage() {
                                 </span>
                               )}
                             </p>
-                            <p className="text-xs text-muted-foreground font-semibold mt-0.5">Nivel {member.level} • Racha {member.streak} días</p>
+                            <p className="text-xs text-muted-foreground font-semibold">Nv. {member.level} · {member.streak} días racha</p>
+                          </div>
+                          <div className="text-right flex-shrink-0">
+                            <div className="text-sm font-extrabold text-primary">{member.points.toLocaleString()}</div>
+                            <div className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">pts</div>
                           </div>
                         </div>
-                        <div className="text-right">
-                          <div className="text-sm font-extrabold text-primary">{member.points.toLocaleString()} pts</div>
-                          <div className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">Aprendizaje</div>
+                        {/* Barra de progreso relativa al líder */}
+                        <div className="ml-[52px] h-1.5 rounded-full bg-muted overflow-hidden">
+                          <motion.div
+                            initial={{ width: 0 }}
+                            animate={{ width: `${pct}%` }}
+                            transition={{ delay: idx * 0.05, duration: 0.5 }}
+                            className={`h-full rounded-full ${idx === 0 ? "bg-amber-400" : idx === 1 ? "bg-gray-400" : idx === 2 ? "bg-orange-400" : "bg-primary/60"}`}
+                          />
                         </div>
                       </div>
                     );

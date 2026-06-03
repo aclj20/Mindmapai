@@ -68,6 +68,15 @@ router.post('/', auth, (req, res) => {
   if (!title) return res.status(400).json({ message: 'Título requerido' });
 
   const groupId = group_id && group_id !== 'null' && group_id !== 'undefined' ? parseInt(group_id) : null;
+
+  if (groupId) {
+    const gm = db.get(
+      "SELECT role FROM group_members WHERE group_id = ? AND user_id = ?",
+      [groupId, req.user.id]
+    );
+    if (!gm || !['admin', 'teacher'].includes(gm.role))
+      return res.status(403).json({ message: 'Solo el administrador del grupo puede crear mapas en él' });
+  }
   const public_id = uniquePublicId();
   const { lastInsertRowid: id } = db.run(
     'INSERT INTO maps (title, owner_id, is_public, public_id, group_id) VALUES (?,?,?,?,?)',
@@ -110,9 +119,23 @@ router.get('/:id', auth, resolveMap, (req, res) => {
     [map.id]
   );
 
+  let is_group_admin = false;
+  let group_public_id = null;
+  if (map.group_id) {
+    const gm = db.get(
+      "SELECT role FROM group_members WHERE group_id = ? AND user_id = ?",
+      [map.group_id, req.user.id]
+    );
+    is_group_admin = !!(gm && ['admin', 'teacher'].includes(gm.role));
+    const grp = db.get('SELECT public_id FROM groups WHERE id = ?', [map.group_id]);
+    group_public_id = grp?.public_id || null;
+  }
+
   res.json({
     ...map,
     userRole: req.userMapRole || (map.is_public ? 'viewer' : null),
+    is_group_admin,
+    group_public_id,
     nodes: nodes.map(n => ({
       ...n,
       tags: JSON.parse(n.tags || '[]'),
@@ -130,7 +153,7 @@ router.put('/:id', auth, resolveMap, (req, res) => {
   const map = req.map;
   let hasAccess = req.userMapRole === 'owner';
   if (!hasAccess && map.group_id) {
-    const membership = db.get("SELECT id FROM group_members WHERE group_id = ? AND user_id = ? AND role = 'teacher'", [map.group_id, req.user.id]);
+    const membership = db.get("SELECT id FROM group_members WHERE group_id = ? AND user_id = ? AND role IN ('teacher','admin')", [map.group_id, req.user.id]);
     if (membership) hasAccess = true;
   }
   if (!hasAccess) return res.status(403).json({ message: 'Solo el propietario puede modificar la configuración del mapa' });
@@ -151,7 +174,7 @@ router.delete('/:id', auth, resolveMap, (req, res) => {
   const map = req.map;
   let canDelete = req.userMapRole === 'owner';
   if (!canDelete && map.group_id) {
-    const membership = db.get("SELECT id FROM group_members WHERE group_id = ? AND user_id = ? AND role = 'teacher'", [map.group_id, req.user.id]);
+    const membership = db.get("SELECT id FROM group_members WHERE group_id = ? AND user_id = ? AND role IN ('teacher','admin')", [map.group_id, req.user.id]);
     if (membership) canDelete = true;
   }
   if (!canDelete) return res.status(403).json({ message: 'Solo el propietario puede eliminar este mapa' });
@@ -354,6 +377,25 @@ router.post('/:id/quiz/generate', auth, resolveMap, async (req, res) => {
   }
   if (!hasAccess) return res.status(403).json({ message: 'Sin acceso' });
 
+  // Si el mapa pertenece a un grupo, solo el admin puede generar (no tomar) el quiz
+  if (map.group_id) {
+    const cached = db.get('SELECT questions_json FROM map_quizzes WHERE map_id = ?', [map.id]);
+    if (!cached) {
+      const gm = db.get(
+        "SELECT role FROM group_members WHERE group_id = ? AND user_id = ?",
+        [map.group_id, req.user.id]
+      );
+      if (!gm || !['admin', 'teacher'].includes(gm.role))
+        return res.status(403).json({ message: 'Solo el administrador del grupo puede generar el quiz' });
+    }
+    // Si ya existe caché, cualquier miembro puede obtenerlo (para tomarlo)
+    if (cached) return res.json(JSON.parse(cached.questions_json));
+  } else {
+    // Mapa personal: devolver caché si existe
+    const cached = db.get('SELECT questions_json FROM map_quizzes WHERE map_id = ?', [map.id]);
+    if (cached) return res.json(JSON.parse(cached.questions_json));
+  }
+
   if (!process.env.GROQ_API_KEY) {
     return res.status(500).json({ message: 'GROQ_API_KEY no configurada en el servidor' });
   }
@@ -403,6 +445,13 @@ Devuelve ÚNICAMENTE el JSON sin envoltorios markdown.`
     });
 
     const quizData = JSON.parse(completion.choices[0].message.content);
+
+    // Guardar para que todos los estudiantes reciban las mismas preguntas
+    db.run(
+      'INSERT INTO map_quizzes (map_id, questions_json) VALUES (?, ?)',
+      [map.id, JSON.stringify(quizData)]
+    );
+
     res.json(quizData);
   } catch (err) {
     console.error('Error Groq quiz:', err.message);

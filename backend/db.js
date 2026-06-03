@@ -260,6 +260,13 @@ function createSchema() {
       joined_at TEXT DEFAULT (datetime('now')),
       UNIQUE(map_id, user_id)
     );
+
+    CREATE TABLE IF NOT EXISTS map_quizzes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      map_id INTEGER NOT NULL UNIQUE REFERENCES maps(id) ON DELETE CASCADE,
+      questions_json TEXT NOT NULL,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
   `);
 
   seedAchievements();
@@ -285,6 +292,26 @@ function createSchema() {
   } catch (_) { /* columna ya existe */ }
 
   _db.run('CREATE UNIQUE INDEX IF NOT EXISTS idx_maps_public_id ON maps(public_id)');
+
+  // Migración: agregar public_id a groups si no existe
+  try {
+    _db.run('ALTER TABLE groups ADD COLUMN public_id TEXT');
+  } catch (_) { /* columna ya existe */ }
+
+  _db.run('CREATE UNIQUE INDEX IF NOT EXISTS idx_groups_public_id ON groups(public_id)');
+
+  // Generar public_id para grupos que no tengan uno
+  const grpStmt = _db.prepare('SELECT id FROM groups WHERE public_id IS NULL');
+  const pendingGroups = [];
+  while (grpStmt.step()) pendingGroups.push(grpStmt.getAsObject().id);
+  grpStmt.free();
+  for (const gid of pendingGroups) {
+    let pid;
+    do { pid = makeShortId(); } while (
+      _db.exec(`SELECT id FROM groups WHERE public_id='${pid}'`)[0]?.values?.length
+    );
+    _db.run('UPDATE groups SET public_id = ? WHERE id = ?', [pid, gid]);
+  }
 
   // Generar public_id para mapas que no tengan uno
   const stmt = _db.prepare('SELECT id FROM maps WHERE public_id IS NULL');

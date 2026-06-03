@@ -125,6 +125,9 @@ export default function ConceptMapView() {
 
   // Colaboración y Permisos
   const [userRole, setUserRole] = useState<"owner" | "editor" | "viewer" | null>(null);
+  const [isGroupAdmin, setIsGroupAdmin] = useState(false);
+  const [mapGroupId, setMapGroupId] = useState<number | null>(null);
+  const [groupPublicId, setGroupPublicId] = useState<string | null>(null);
   const [sharingInfo, setSharingInfo] = useState<{
     is_public: boolean;
     invite_code: string | null;
@@ -314,8 +317,14 @@ export default function ConceptMapView() {
       method: "POST",
       headers: { Authorization: `Bearer ${getToken()}` },
     })
-      .then((r) => {
-        if (!r.ok) throw new Error("No se pudo generar el quiz");
+      .then(async (r) => {
+        if (!r.ok) {
+          const err = await r.json().catch(() => ({}));
+          if (r.status === 403 && mapGroupId && !isGroupAdmin) {
+            throw new Error("El administrador del grupo aún no ha publicado el quiz para este mapa.");
+          }
+          throw new Error(err.message || "No se pudo generar el quiz");
+        }
         return r.json();
       })
       .then((data) => {
@@ -327,8 +336,8 @@ export default function ConceptMapView() {
         setCorrectCount(0);
         setShowExplanation(false);
       })
-      .catch(() => {
-        toast.error("No se pudo generar el quiz en este momento. Asegúrate de tener al menos 2 conceptos creados.");
+      .catch((err: Error) => {
+        toast.error(err.message || "No se pudo cargar el quiz. Asegúrate de tener al menos 2 conceptos creados.");
         setShowQuizModal(false);
       })
       .finally(() => setQuizLoading(false));
@@ -495,6 +504,9 @@ export default function ConceptMapView() {
         setLiked(!!data.liked);
         setLikeCount(data.like_count ?? 0);
         setUserRole(data.userRole || null);
+        setIsGroupAdmin(!!data.is_group_admin);
+        setMapGroupId(data.group_id || null);
+        setGroupPublicId(data.group_public_id || null);
         setOwnerName(data.owner_name ?? "Propietario");
         setCreatedAt(data.created_at || "");
         setSharingInfo({
@@ -1171,9 +1183,9 @@ export default function ConceptMapView() {
       <nav className="px-6 py-4 bg-background border-b border-border flex items-center justify-between z-20 shadow-sm">
         <div className="flex items-center gap-6">
           <Link
-            to="/dashboard/student"
+            to={groupPublicId ? `/groups/${groupPublicId}` : "/dashboard"}
             className="w-10 h-10 rounded-full border border-border bg-card flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-            aria-label="Volver al dashboard"
+            aria-label={groupPublicId ? "Volver al grupo" : "Volver al dashboard"}
           >
             <ArrowLeft className="w-5 h-5" />
           </Link>
@@ -1274,7 +1286,7 @@ export default function ConceptMapView() {
             <button
               onClick={handleStartQuiz}
               className="flex items-center justify-center w-9 h-9 rounded-lg text-muted-foreground hover:bg-card"
-              title="Realizar Quiz"
+              title={mapGroupId ? (isGroupAdmin ? "Generar Quiz" : "Tomar Quiz") : "Realizar Quiz"}
             >
               <Trophy className="w-4 h-4 text-emerald-600" />
             </button>
@@ -1378,7 +1390,7 @@ export default function ConceptMapView() {
                      className="flex items-center gap-2 px-3 py-2 text-xs font-bold text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg cursor-pointer outline-none transition-colors"
                    >
                      <Trophy className="w-4 h-4 text-emerald-600" />
-                     Realizar Quiz
+                     {mapGroupId ? (isGroupAdmin ? "Generar Quiz" : "Tomar Quiz") : "Realizar Quiz"}
                    </DropdownMenu.Item>
                    <DropdownMenu.Item
                      onClick={() => setShowExportModal(true)}

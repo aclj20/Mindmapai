@@ -157,6 +157,15 @@ ${text.slice(0, 4000)}
       const rawGroupId = req.body.group_id;
       const groupId = rawGroupId && rawGroupId !== 'null' && rawGroupId !== 'undefined' ? parseInt(rawGroupId) : null;
 
+      if (groupId) {
+        const gm = db.get(
+          "SELECT role FROM group_members WHERE group_id = ? AND user_id = ?",
+          [groupId, req.user.id]
+        );
+        if (!gm || !['admin', 'teacher'].includes(gm.role))
+          return res.status(403).json({ message: 'Solo el administrador del grupo puede crear mapas en él' });
+      }
+
       const { lastInsertRowid: mapId } = db.run(
         `INSERT INTO maps (title, owner_id, is_public, public_id, node_count, updated_at, group_id)
          VALUES (?, ?, 0, ?, ?, datetime('now'), ?)`,

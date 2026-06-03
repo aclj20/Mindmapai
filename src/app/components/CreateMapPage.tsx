@@ -43,6 +43,10 @@ export default function CreateMapPage() {
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const searchParams = new URLSearchParams(window.location.search);
+  const groupId = searchParams.get("group_id");
+  const groupName = searchParams.get("group_name");
+
   const startProgressAnimation = () => {
     const timers: ReturnType<typeof setTimeout>[] = [];
     STEPS.forEach((s, i) => {
@@ -59,7 +63,13 @@ export default function CreateMapPage() {
     timers.forEach(clearTimeout);
     setProgress(100);
     setCurrentStep("¡Mapa conceptual generado con éxito!");
-    setTimeout(() => navigate(`/map/${publicId}`), 800);
+    setTimeout(() => {
+      if (groupId) {
+        navigate(`/groups/${groupId}`);
+      } else {
+        navigate(`/map/${publicId}`);
+      }
+    }, 800);
   };
 
   const handleGenerate = async () => {
@@ -169,12 +179,17 @@ export default function CreateMapPage() {
       <nav className="p-3 md:p-4 bg-background border-b border-border shadow-sm">
         <div className="container mx-auto flex items-center gap-4">
           <Link
-            to="/dashboard/student"
+            to={groupId ? `/groups/${groupId}` : "/dashboard"}
             className="text-muted-foreground hover:text-primary transition-colors"
           >
             <ArrowLeft className="w-6 h-6" />
           </Link>
           <h1 className="text-xl font-semibold text-foreground tracking-tight">MindMap AI</h1>
+          {groupId && groupName && (
+            <span className="ml-2 text-xs font-bold bg-primary-subtle text-primary border border-primary/20 px-2.5 py-1 rounded-full">
+              Publicando en: {decodeURIComponent(groupName)}
+            </span>
+          )}
         </div>
       </nav>
 

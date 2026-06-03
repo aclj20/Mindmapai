@@ -1,13 +1,12 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
-import { Brain, GraduationCap, User } from "lucide-react";
+import { Brain } from "lucide-react";
 import { motion } from "motion/react";
 
 const API_URL = "http://localhost:3001/api";
 
 export default function LoginPage() {
   const [isLogin, setIsLogin] = useState(true);
-  const [role, setRole] = useState<"student" | "teacher">("student");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -24,7 +23,7 @@ export default function LoginPage() {
       const endpoint = isLogin ? "/auth/login" : "/auth/register";
       const body = isLogin
         ? { email, password }
-        : { name, email, password, role };
+        : { name, email, password };
 
       const res = await fetch(`${API_URL}${endpoint}`, {
         method: "POST",

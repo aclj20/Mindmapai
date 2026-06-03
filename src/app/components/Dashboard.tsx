@@ -38,6 +38,7 @@ interface RecentMap {
 
 interface Group {
   id: number;
+  public_id: string;
   name: string;
   join_code: string;
   teacher_id: number;
@@ -204,10 +205,10 @@ export default function Dashboard() {
         return data;
       })
       .then((data) => {
-        toast.success(`Clase "${data.name}" creada con éxito`);
+        toast.success(`Grupo "${data.name}" creado · Código: ${data.join_code}`);
         setShowCreateModal(false);
         setNewGroupName("");
-        fetchGroups();
+        navigate(`/groups/${data.public_id}`);
       })
       .catch((err) => toast.error(err.message))
       .finally(() => setActionLoading(false));
@@ -218,51 +219,26 @@ export default function Dashboard() {
     if (!joinCode.trim()) return;
 
     setActionLoading(true);
-    // 1. Intentar unirse al mapa colaborativo
-    fetch(`${API_URL}/maps/join`, {
+    fetch(`${API_URL}/groups/join`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${getToken()}`,
       },
-      body: JSON.stringify({ invite_code: joinCode }),
+      body: JSON.stringify({ join_code: joinCode.trim() }),
     })
       .then(async (r) => {
         const data = await r.json();
-        if (r.ok) {
-          toast.success("Te has unido al mapa colaborativo con éxito");
-          setShowJoinModal(false);
-          setJoinCode("");
-          navigate(`/map/${data.public_id}`);
-          return { handled: true };
-        }
-        return { handled: false };
+        if (!r.ok) throw new Error(data.message || "Código inválido");
+        return data;
       })
-      .then((res) => {
-        if (res && res.handled) return;
-
-        // 2. Si no es un mapa, intentar unirse al grupo/clase
-        return fetch(`${API_URL}/groups/join`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${getToken()}`,
-          },
-          body: JSON.stringify({ join_code: joinCode }),
-        })
-          .then(async (r) => {
-            const data = await r.json();
-            if (!r.ok) throw new Error(data.message || "Código inválido");
-            return data;
-          })
-          .then((data) => {
-            toast.success(data.message || "Te uniste al grupo con éxito");
-            setShowJoinModal(false);
-            setJoinCode("");
-            fetchGroups();
-          });
+      .then((data) => {
+        toast.success(data.message || "Te uniste al grupo con éxito");
+        setShowJoinModal(false);
+        setJoinCode("");
+        navigate(`/groups/${data.group.public_id}`);
       })
-      .catch((err) => toast.error(err.message || "Error al procesar el código"))
+      .catch((err) => toast.error(err.message || "Código inválido"))
       .finally(() => setActionLoading(false));
   };
 
@@ -437,20 +413,24 @@ export default function Dashboard() {
             <div className="p-6 md:p-8 rounded-2xl bg-card border border-border shadow-md">
               <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-6">
                 <div>
-                  <h3 className="text-lg md:text-xl font-bold tracking-tight">Espacios de Colaboración</h3>
-                  <p className="text-xs text-muted-foreground font-semibold">Trabaja en equipo y evalúa tu aprendizaje en grupo</p>
+                  <h3 className="text-lg md:text-xl font-bold tracking-tight">Mis Grupos</h3>
+                  <p className="text-xs text-muted-foreground font-semibold">Crea un grupo o únete con un código</p>
                 </div>
-                {authUser?.role === "teacher" && (
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setShowCreateModal(true)}
-                      className="cursor-pointer px-4 py-2 rounded-xl bg-primary hover:bg-primary-hover text-primary-foreground transition-all font-semibold text-xs flex items-center gap-1.5 shadow-sm"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      Crear Espacio
-                    </button>
-                  </div>
-                )}
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setShowJoinModal(true)}
+                    className="cursor-pointer px-4 py-2 rounded-xl border border-border bg-card hover:bg-muted text-foreground transition-all font-semibold text-xs flex items-center gap-1.5 shadow-sm"
+                  >
+                    Unirse
+                  </button>
+                  <button
+                    onClick={() => setShowCreateModal(true)}
+                    className="cursor-pointer px-4 py-2 rounded-xl bg-primary hover:bg-primary-hover text-primary-foreground transition-all font-semibold text-xs flex items-center gap-1.5 shadow-sm"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    Crear grupo
+                  </button>
+                </div>
               </div>
 
               {groupsLoading ? (
@@ -458,8 +438,8 @@ export default function Dashboard() {
               ) : groups.length === 0 ? (
                 <div className="text-center py-10 border border-dashed border-border rounded-xl bg-muted/30">
                   <Users className="w-12 h-12 text-muted-foreground/50 mx-auto mb-3" />
-                  <p className="text-sm font-semibold text-muted-foreground">Aún no participas en ningún espacio de colaboración</p>
-                  <p className="text-xs text-muted-foreground mt-1">Únete a un espacio o mapa colaborativo ingresando un código</p>
+                  <p className="text-sm font-semibold text-muted-foreground">Aún no perteneces a ningún grupo</p>
+                  <p className="text-xs text-muted-foreground mt-1">Crea un grupo o pídele el código a alguien para unirte</p>
                 </div>
               ) : (
                 <div className="grid sm:grid-cols-2 gap-4">
@@ -468,7 +448,7 @@ export default function Dashboard() {
                     return (
                       <Link
                         key={group.id}
-                        to={`/groups/${group.id}`}
+                        to={`/groups/${group.public_id}`}
                         className="block p-5 rounded-xl border border-border hover:border-primary/20 bg-card hover:bg-muted/30 transition-all shadow-sm group relative overflow-hidden"
                       >
                         <div className="absolute right-3 top-3 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-primary-subtle text-primary border border-primary/10">
