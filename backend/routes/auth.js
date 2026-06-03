@@ -15,9 +15,9 @@ function signToken(user) {
 }
 
 router.post('/register', async (req, res) => {
-  const { name, email, password, role } = req.body;
+  const { name, email, password, role = 'student' } = req.body;
 
-  if (!name || !email || !password || !role)
+  if (!name || !email || !password)
     return res.status(400).json({ message: 'Todos los campos son requeridos' });
 
   if (!['student', 'teacher'].includes(role))

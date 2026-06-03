@@ -154,10 +154,13 @@ ${text.slice(0, 4000)}
     const positions = computeLayout(aiNodes, aiConns);
 
     try {
+      const rawGroupId = req.body.group_id;
+      const groupId = rawGroupId && rawGroupId !== 'null' && rawGroupId !== 'undefined' ? parseInt(rawGroupId) : null;
+
       const { lastInsertRowid: mapId } = db.run(
-        `INSERT INTO maps (title, owner_id, is_public, public_id, node_count, updated_at)
-         VALUES (?, ?, 0, ?, ?, datetime('now'))`,
-        [title, req.user.id, uniquePublicId(), aiNodes.length]
+        `INSERT INTO maps (title, owner_id, is_public, public_id, node_count, updated_at, group_id)
+         VALUES (?, ?, 0, ?, ?, datetime('now'), ?)`,
+        [title, req.user.id, uniquePublicId(), aiNodes.length, groupId]
       );
 
       const idMap = {};

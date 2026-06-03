@@ -103,6 +103,7 @@ function createSchema() {
       owner_id INTEGER NOT NULL REFERENCES users(id),
       is_public INTEGER DEFAULT 0,
       public_id TEXT UNIQUE,
+      group_id INTEGER REFERENCES groups(id) ON DELETE CASCADE,
       like_count INTEGER DEFAULT 0,
       view_count INTEGER DEFAULT 0,
       comment_count INTEGER DEFAULT 0,
@@ -208,8 +209,19 @@ function createSchema() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       group_id INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
       user_id INTEGER NOT NULL REFERENCES users(id),
+      role TEXT DEFAULT 'student',
       joined_at TEXT DEFAULT (datetime('now')),
       UNIQUE(group_id, user_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS quiz_scores (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL REFERENCES users(id),
+      map_id INTEGER NOT NULL REFERENCES maps(id) ON DELETE CASCADE,
+      score INTEGER NOT NULL,
+      total_questions INTEGER NOT NULL,
+      correct_answers INTEGER NOT NULL,
+      created_at TEXT DEFAULT (datetime('now'))
     );
 
     CREATE TABLE IF NOT EXISTS assignments (
@@ -234,10 +246,19 @@ function createSchema() {
     CREATE TABLE IF NOT EXISTS study_sessions (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER NOT NULL REFERENCES users(id),
-      map_id INTEGER REFERENCES maps(id),
+      map_id REFERENCES maps(id),
       started_at TEXT DEFAULT (datetime('now')),
       ended_at TEXT,
       duration_minutes INTEGER DEFAULT 0
+    );
+
+    CREATE TABLE IF NOT EXISTS map_collaborators (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      map_id INTEGER NOT NULL REFERENCES maps(id) ON DELETE CASCADE,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      role TEXT NOT NULL CHECK(role IN ('owner', 'editor', 'viewer')),
+      joined_at TEXT DEFAULT (datetime('now')),
+      UNIQUE(map_id, user_id)
     );
   `);
 
@@ -246,6 +267,21 @@ function createSchema() {
   // Migración: agregar public_id a maps si no existe (para DBs anteriores)
   try {
     _db.run('ALTER TABLE maps ADD COLUMN public_id TEXT');
+  } catch (_) { /* columna ya existe */ }
+
+  // Migración: agregar group_id a maps si no existe
+  try {
+    _db.run('ALTER TABLE maps ADD COLUMN group_id INTEGER');
+  } catch (_) { /* columna ya existe */ }
+
+  // Migración: agregar invite_code a maps si no existe
+  try {
+    _db.run('ALTER TABLE maps ADD COLUMN invite_code TEXT');
+  } catch (_) { /* columna ya existe */ }
+
+  // Migración: agregar role a group_members si no existe
+  try {
+    _db.run("ALTER TABLE group_members ADD COLUMN role TEXT DEFAULT 'student'");
   } catch (_) { /* columna ya existe */ }
 
   _db.run('CREATE UNIQUE INDEX IF NOT EXISTS idx_maps_public_id ON maps(public_id)');
@@ -261,6 +297,19 @@ function createSchema() {
       _db.exec(`SELECT id FROM maps WHERE public_id='${pid}'`)[0]?.values?.length
     );
     _db.run('UPDATE maps SET public_id = ? WHERE id = ?', [pid, mapId]);
+  }
+
+  // Recalcular nivel y XP para todos los usuarios según total_points y las nuevas reglas
+  try {
+    const { getLevelDetails } = require('./utils/gamification');
+    const users = db.all('SELECT id, total_points FROM users');
+    for (const u of users) {
+      const { level, xpInLevel, xpNeeded } = getLevelDetails(u.total_points || 0);
+      db.run('UPDATE users SET level = ?, xp = ?, xp_to_next = ? WHERE id = ?', [level, xpInLevel, xpNeeded, u.id]);
+    }
+    console.log('Niveles y XP de usuarios recalculados con éxito.');
+  } catch (err) {
+    console.error('Error al recalcular niveles de usuarios:', err.message);
   }
 }
 

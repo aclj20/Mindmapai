@@ -11,7 +11,7 @@ function makeCode() {
 // GET /api/groups/my — grupos del usuario
 router.get('/my', auth, (req, res) => {
   const groups = db.all(
-    `SELECT g.id, g.name, g.join_code, u.name as teacher,
+    `SELECT g.id, g.name, g.join_code, g.teacher_id, u.name as teacher,
             COUNT(DISTINCT gm.user_id) as students
      FROM groups g
      JOIN users u ON u.id = g.teacher_id
@@ -23,11 +23,8 @@ router.get('/my', auth, (req, res) => {
   res.json(groups);
 });
 
-// POST /api/groups — crear grupo (solo docente)
+// POST /api/groups — crear grupo
 router.post('/', auth, (req, res) => {
-  if (req.user.role !== 'teacher')
-    return res.status(403).json({ message: 'Solo los docentes pueden crear grupos' });
-
   const { name } = req.body;
   if (!name) return res.status(400).json({ message: 'Nombre requerido' });
 
@@ -40,8 +37,8 @@ router.post('/', auth, (req, res) => {
     'INSERT INTO groups (name, teacher_id, join_code) VALUES (?,?,?)',
     [name, req.user.id, join_code]
   );
-  // el docente también es miembro
-  db.run('INSERT INTO group_members (group_id, user_id) VALUES (?,?)', [id, req.user.id]);
+  // el creador es el docente en este grupo
+  db.run("INSERT INTO group_members (group_id, user_id, role) VALUES (?,?, 'teacher')", [id, req.user.id]);
 
   res.status(201).json({ id, name, join_code });
 });
@@ -57,14 +54,15 @@ router.post('/join', auth, (req, res) => {
   if (db.get('SELECT id FROM group_members WHERE group_id = ? AND user_id = ?', [group.id, req.user.id]))
     return res.status(409).json({ message: 'Ya eres miembro de este grupo' });
 
-  db.run('INSERT INTO group_members (group_id, user_id) VALUES (?,?)', [group.id, req.user.id]);
+  // los que se unen son estudiantes por defecto
+  db.run("INSERT INTO group_members (group_id, user_id, role) VALUES (?,?, 'student')", [group.id, req.user.id]);
   res.json({ message: `Te uniste a ${group.name}`, group });
 });
 
-// GET /api/groups/:id — detalles con miembros y ranking
+// GET /api/groups/:id — detalles con miembros, mapas y ranking por quiz
 router.get('/:id', auth, (req, res) => {
   const membership = db.get(
-    'SELECT id FROM group_members WHERE group_id = ? AND user_id = ?',
+    'SELECT role FROM group_members WHERE group_id = ? AND user_id = ?',
     [req.params.id, req.user.id]
   );
   if (!membership) return res.status(403).json({ message: 'No eres miembro de este grupo' });
@@ -76,19 +74,40 @@ router.get('/:id', auth, (req, res) => {
   );
   if (!group) return res.status(404).json({ message: 'Grupo no encontrado' });
 
+  // Miembros ordenados por su puntaje de quiz en mapas del grupo
   const members = db.all(
-    `SELECT u.id, u.name, u.level, u.total_points, u.streak, u.role,
-            COUNT(DISTINCT m.id) as maps_created
+    `SELECT u.id, u.name, u.level, u.streak, gm.role,
+            COALESCE((
+              SELECT SUM(max_score) 
+              FROM (
+                SELECT MAX(qs.score) as max_score 
+                FROM quiz_scores qs 
+                JOIN maps m ON m.id = qs.map_id 
+                WHERE qs.user_id = u.id AND m.group_id = ? 
+                GROUP BY qs.map_id
+              )
+            ), 0) as points,
+            COUNT(DISTINCT ua.achievement_id) as badges
      FROM group_members gm
      JOIN users u ON u.id = gm.user_id
-     LEFT JOIN maps m ON m.owner_id = u.id
+     LEFT JOIN user_achievements ua ON ua.user_id = u.id AND ua.unlocked_at IS NOT NULL
      WHERE gm.group_id = ?
      GROUP BY u.id
-     ORDER BY u.total_points DESC`,
+     ORDER BY points DESC`,
+    [req.params.id, req.params.id]
+  );
+
+  // Mapas de la clase
+  const maps = db.all(
+    `SELECT m.id, m.public_id, m.title, m.node_count, m.created_at, u.name as owner_name, u.id as owner_id
+     FROM maps m
+     JOIN users u ON u.id = m.owner_id
+     WHERE m.group_id = ?
+     ORDER BY m.updated_at DESC`,
     [req.params.id]
   );
 
-  res.json({ ...group, members });
+  res.json({ ...group, myRole: membership.role, members, maps });
 });
 
 // GET /api/groups/:id/assignments — tareas del grupo
