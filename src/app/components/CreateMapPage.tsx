@@ -45,6 +45,7 @@ export default function CreateMapPage() {
 
   const searchParams = new URLSearchParams(window.location.search);
   const groupId = searchParams.get("group_id");
+  const groupPublicId = searchParams.get("group_public_id");
   const groupName = searchParams.get("group_name");
 
   const startProgressAnimation = () => {
@@ -64,8 +65,8 @@ export default function CreateMapPage() {
     setProgress(100);
     setCurrentStep("¡Mapa conceptual generado con éxito!");
     setTimeout(() => {
-      if (groupId) {
-        navigate(`/groups/${groupId}`);
+      if (groupPublicId) {
+        navigate(`/groups/${groupPublicId}`);
       } else {
         navigate(`/map/${publicId}`);
       }
@@ -179,7 +180,7 @@ export default function CreateMapPage() {
       <nav className="p-3 md:p-4 bg-background border-b border-border shadow-sm">
         <div className="container mx-auto flex items-center gap-4">
           <Link
-            to={groupId ? `/groups/${groupId}` : "/dashboard"}
+            to={groupPublicId ? `/groups/${groupPublicId}` : "/dashboard"}
             className="text-muted-foreground hover:text-primary transition-colors"
           >
             <ArrowLeft className="w-6 h-6" />

@@ -255,7 +255,7 @@ export default function GroupDetailPage() {
                 </div>
                 {isTeacher && (
                   <Link
-                    to={`/map/create?group_id=${group.id}&group_name=${encodeURIComponent(group.name)}`}
+                    to={`/map/create?group_id=${group.id}&group_public_id=${group.public_id}&group_name=${encodeURIComponent(group.name)}`}
                     className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-primary hover:bg-primary-hover text-primary-foreground transition-all font-semibold text-xs shadow-md shadow-primary/10"
                   >
                     <Plus className="w-3.5 h-3.5" />
@@ -268,7 +268,7 @@ export default function GroupDetailPage() {
                 <div className="text-center py-12 border border-dashed border-border rounded-xl bg-muted/20">
                   <Brain className="w-12 h-12 text-muted-foreground/40 mx-auto mb-3" />
                   <p className="text-sm font-semibold text-muted-foreground">No hay mapas conceptuales en este grupo</p>
-                  <Link to={`/map/create?group_id=${group.id}&group_name=${encodeURIComponent(group.name)}`} className="text-xs text-primary font-bold mt-1 inline-block hover:underline">
+                  <Link to={`/map/create?group_id=${group.id}&group_public_id=${group.public_id}&group_name=${encodeURIComponent(group.name)}`} className="text-xs text-primary font-bold mt-1 inline-block hover:underline">
                     ¡Crea el primer mapa grupal!
                   </Link>
                 </div>
