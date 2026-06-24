@@ -20,6 +20,7 @@ import CommunityDetailPage from "./components/CommunityDetailPage";
 import PostDetailPage from "./components/PostDetailPage";
 import PrivateRoute from "./components/PrivateRoute";
 import GuestRoute from "./components/GuestRoute";
+import NotFoundPage from "./components/NotFoundPage";
 
 export const router = createBrowserRouter([
   {
@@ -157,5 +158,9 @@ export const router = createBrowserRouter([
         <AdminPanel />
       </AdminRoute>
     ),
+  },
+  {
+    path: "*",
+    element: <NotFoundPage />,
   },
 ]);
