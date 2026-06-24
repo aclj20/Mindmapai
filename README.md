@@ -1,6 +1,6 @@
 # MindMap AI
 
-Plataforma educativa para crear y estudiar con mapas conceptuales generados por inteligencia artificial. Los usuarios pueden subir documentos o escribir un tema, y la IA genera un mapa conceptual interactivo. Incluye sistema de autenticación, grupos colaborativos, ranking y logros.
+Plataforma educativa para crear y estudiar con mapas conceptuales generados por inteligencia artificial. Los usuarios pueden subir documentos o escribir un tema, y la IA genera un mapa conceptual interactivo. Incluye autenticación, grupos colaborativos, comunidades, ranking, logros y panel de administración.
 
 ---
 
@@ -14,6 +14,7 @@ Mindmapai/
 │   ├── routes/            Endpoints de la API
 │   ├── scripts/           Scripts de seedeo de datos
 │   ├── utils/             Utilidades (gamificación, IDs)
+│   ├── achievementChecker.js  Lógica de desbloqueo de logros
 │   ├── db.js              Inicialización y conexión a la base de datos
 │   └── server.js          Punto de entrada del servidor
 │
@@ -34,8 +35,9 @@ Mindmapai/
 ## Requisitos
 
 - Node.js 18+
-- pnpm (o npm)
+- npm
 - Una API key de [Groq](https://console.groq.com/)
+- Cuenta AWS S3 (opcional, para subida de imágenes y archivos)
 
 ---
 
@@ -47,10 +49,21 @@ Antes de arrancar, crea el archivo `.env` dentro de `backend/`:
 cp backend/.env.example backend/.env
 ```
 
-Edita `backend/.env` y añade tu clave:
+Edita `backend/.env` y añade tus claves:
 
 ```env
 GROQ_API_KEY=tu_api_key_aqui
+
+# Opcional — S3 para subida de archivos
+AWS_ACCESS_KEY_ID=
+AWS_SECRET_ACCESS_KEY=
+AWS_REGION=
+AWS_S3_BUCKET=
+AWS_S3_PUBLIC_URL=
+
+# Opcional — cuenta de administrador
+ADMIN_EMAIL=admin@example.com
+ADMIN_PASSWORD=secreto
 ```
 
 ---
@@ -83,15 +96,20 @@ Abre [http://localhost:5173](http://localhost:5173) en el navegador.
 
 ## Endpoints principales de la API
 
-| Método | Ruta                   | Descripción                  |
-| ------ | ---------------------- | ---------------------------- |
-| POST   | `/api/auth/register`   | Registro de usuario          |
-| POST   | `/api/auth/login`      | Login                        |
-| GET    | `/api/maps`            | Obtener mapas del usuario    |
-| POST   | `/api/maps/generate`   | Generar mapa con IA          |
-| GET    | `/api/groups`          | Listar grupos                |
-| GET    | `/api/leaderboard`     | Ranking global               |
-| GET    | `/api/achievements`    | Logros del usuario           |
+| Módulo | Prefijo |
+| --- | --- |
+| Autenticación | `/api/auth` |
+| Usuarios | `/api/users` |
+| Mapas conceptuales | `/api/maps` |
+| Grupos / Aulas | `/api/groups` |
+| Comunidades | `/api/communities` |
+| Leaderboard | `/api/leaderboard` |
+| Logros | `/api/achievements` |
+| Sesiones de estudio | `/api/sessions` |
+| Subida de archivos | `/api/upload` |
+| Panel de administración | `/api/admin` |
+
+Consulta [`backend/README.md`](backend/README.md) para la referencia completa de cada endpoint.
 
 ---
 
