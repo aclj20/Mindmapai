@@ -1,6 +1,6 @@
 # MindMap AI
 
-Plataforma educativa para crear y estudiar con mapas conceptuales generados por inteligencia artificial. Los usuarios pueden subir documentos o escribir un tema, y la IA genera un mapa conceptual interactivo. Incluye autenticación, grupos colaborativos, comunidades, ranking, logros y panel de administración.
+Plataforma educativa para crear y estudiar con mapas conceptuales generados por inteligencia artificial. Los usuarios pueden escribir un tema, subir un documento o dictar audio, y la IA genera un mapa conceptual interactivo. Incluye colaboración en tiempo real (WebSockets), grupos, comunidades, ranking, logros y panel de administración.
 
 ---
 

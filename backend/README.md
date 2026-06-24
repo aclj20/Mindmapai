@@ -24,6 +24,8 @@ La base de datos se crea automáticamente en `backend/data/mindmapai.db` al prim
 | Autenticación | JWT (7 días) + bcryptjs |
 | Persistencia | Export a archivo `.db` con debounce de 150 ms |
 | Almacenamiento | AWS S3 (avatares, banners, adjuntos) |
+| Tiempo real | Socket.IO 4 — colaboración en vivo en mapas |
+| Transcripción | Groq Whisper (`whisper-large-v3-turbo`) — audio a texto |
 
 ---
 
@@ -269,6 +271,7 @@ Las rutas marcadas con 🔑 requieren además `role = admin`.
 | POST | `/api/maps/:id/consult-ai` | 🔒 | Consulta a la IA sobre el mapa. Body: `{ question }`. |
 | POST | `/api/maps/:id/quiz/generate` | 🔒 | Genera quiz de 5 preguntas con IA a partir del mapa. |
 | POST | `/api/maps/:id/quiz/submit` | 🔒 | Envía respuestas del quiz. Otorga XP según aciertos. |
+| POST | `/api/maps/transcribe` | 🔒 | Transcribe audio a texto con Groq Whisper. Body: `multipart/form-data`, campo `audio` (MP3, WAV, M4A, WEBM, OGG, FLAC — máx 25 MB). Devuelve `{ text }`. |
 | POST | `/api/maps/join` | 🔒 | Unirse a un mapa con código de invitación. Body: `{ code }`. |
 | GET | `/api/maps/:id/sharing` | 🔒 owner | Info de colaboradores y código de invitación activo. |
 | POST | `/api/maps/:id/sharing/invite-code` | 🔒 owner | Genera código de invitación. Body: `{ role }`. |
@@ -382,6 +385,32 @@ Todas requieren 🔒 + 🔑 `role = admin`, excepto las marcadas.
 | Método | Ruta | Auth | Descripción |
 | --- | --- | --- | --- |
 | GET | `/api/health` | — | Devuelve `{ status: "ok" }`. |
+
+---
+
+### WebSocket — Socket.IO (`ws://localhost:3001`)
+
+El servidor expone un namespace de Socket.IO para colaboración en tiempo real en mapas. No requiere token; la identidad se pasa al unirse a la sala.
+
+#### Eventos que el cliente emite al servidor
+
+| Evento | Payload | Descripción |
+| --- | --- | --- |
+| `join-map` | `{ mapId, userId, name, email }` | Entra a la sala del mapa. Emitir dentro del handler `connect` para que funcione en reconexiones. |
+| `mouse-move` | `{ x, y }` | Posición del cursor en coordenadas del canvas. |
+| `node-select` | `{ nodeId }` | Nodo seleccionado por el usuario (o `null` para deseleccionar). |
+| `node-drag` | `{ nodeId, x, y }` | Posición del nodo mientras se arrastra. |
+| `map-changed` | — | Notifica que el mapa fue guardado (tras `POST /api/maps/:id/nodes`). |
+
+#### Eventos que el servidor emite al cliente
+
+| Evento | Payload | Descripción |
+| --- | --- | --- |
+| `active-users` | `Array<{ userId, name, email, socketId }>` | Lista de usuarios activos en la sala. Se emite al entrar y al salir alguien. |
+| `peer-mouse-move` | `{ socketId, userId, name, x, y }` | Cursor de otro colaborador. |
+| `peer-node-select` | `{ socketId, userId, nodeId }` | Nodo seleccionado por otro colaborador. |
+| `peer-node-drag` | `{ nodeId, x, y }` | Nodo arrastrado por otro colaborador. |
+| `peer-map-changed` | — | Otro colaborador guardó cambios; recargar el mapa si no hay edición local activa. |
 
 ---
 
