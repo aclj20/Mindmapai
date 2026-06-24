@@ -737,13 +737,14 @@ export default function GroupDetailPage() {
                 announcements.map(ann => {
                   const initials = ann.author_name.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase();
                   const timeAgo = (() => {
-                    const diff = Date.now() - new Date(ann.created_at).getTime();
+                    const utc = ann.created_at.includes('T') ? ann.created_at : ann.created_at.replace(' ', 'T') + 'Z';
+                    const diff = Date.now() - new Date(utc).getTime();
                     const m = Math.floor(diff / 60000);
                     if (m < 1) return 'Ahora mismo';
                     if (m < 60) return `Hace ${m} min`;
                     const h = Math.floor(m / 60);
                     if (h < 24) return `Hace ${h}h`;
-                    return new Date(ann.created_at).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
+                    return new Date(utc).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
                   })();
                   return (
                     <motion.div key={ann.id} layout initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
@@ -1154,7 +1155,7 @@ export default function GroupDetailPage() {
                         <p className="text-sm font-bold text-foreground truncate">{s.student_name}</p>
                         {s.status === 'submitted' ? (
                           <p className="text-xs text-muted-foreground mt-0.5">
-                            Entregado {new Date(s.submitted_at!).toLocaleString("es-ES", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+                            Entregado {new Date(s.submitted_at!.includes('T') ? s.submitted_at! : s.submitted_at!.replace(' ', 'T') + 'Z').toLocaleString("es-ES", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
                           </p>
                         ) : (
                           <p className="text-xs text-muted-foreground mt-0.5">Sin entregar</p>
@@ -1232,7 +1233,7 @@ export default function GroupDetailPage() {
                       <p className="text-xs text-emerald-600 mt-1">Mapa: {submitModal.my_submission.map_title}</p>
                     )}
                     <p className="text-xs text-emerald-500 mt-1">
-                      {new Date(submitModal.my_submission.submitted_at).toLocaleString("es-ES")}
+                      {new Date(submitModal.my_submission.submitted_at.includes('T') ? submitModal.my_submission.submitted_at : submitModal.my_submission.submitted_at.replace(' ', 'T') + 'Z').toLocaleString("es-ES")}
                     </p>
                     <p className="text-xs text-muted-foreground mt-3">Puedes volver a entregar seleccionando otro mapa.</p>
                   </div>

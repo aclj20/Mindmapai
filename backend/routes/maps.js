@@ -534,6 +534,38 @@ router.post('/:id/quiz/submit', auth, resolveMap, (req, res) => {
   });
 });
 
+// ── Transcripción de audio ────────────────────────────────────────────────────
+
+const multerAudio = require('multer')({ storage: require('multer').memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } });
+const AUDIO_MIMES = ['audio/mpeg','audio/mp4','audio/wav','audio/webm','audio/ogg','audio/flac','audio/x-m4a','video/webm','video/mp4'];
+
+router.post('/transcribe', auth, multerAudio.single('audio'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ message: 'No se recibió ningún archivo de audio' });
+  if (!AUDIO_MIMES.includes(req.file.mimetype) && !req.file.originalname.match(/\.(mp3|mp4|wav|webm|ogg|flac|m4a)$/i))
+    return res.status(400).json({ message: 'Formato de audio no soportado' });
+  if (!process.env.GROQ_API_KEY)
+    return res.status(503).json({ message: 'GROQ_API_KEY no configurada en el servidor' });
+
+  try {
+    const Groq = require('groq-sdk');
+    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+
+    const audioFile = new File([req.file.buffer], req.file.originalname, { type: req.file.mimetype });
+
+    const transcription = await groq.audio.transcriptions.create({
+      file: audioFile,
+      model: 'whisper-large-v3-turbo',
+      response_format: 'text',
+      language: 'es',
+    });
+
+    res.json({ text: transcription });
+  } catch (err) {
+    console.error('Error transcripción Groq:', err.message);
+    res.status(500).json({ message: 'Error al transcribir el audio' });
+  }
+});
+
 // ── Rutas de Colaboración de Mapas ──────────────────────────────────────────
 
 router.post('/join', auth, (req, res) => {

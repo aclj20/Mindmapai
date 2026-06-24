@@ -1,14 +1,16 @@
-import { useState, useRef, DragEvent } from "react";
+import { useState, useRef, useEffect, DragEvent } from "react";
 import { useNavigate, Link } from "react-router";
 import {
   FileText,
   Upload,
   Mic,
+  MicOff,
   Sparkles,
   ArrowLeft,
   Loader2,
   CheckCircle2,
   X,
+  Square,
 } from "lucide-react";
 import { motion } from "motion/react";
 import * as Tabs from "@radix-ui/react-tabs";
@@ -42,6 +44,49 @@ export default function CreateMapPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [audioFile, setAudioFile] = useState<File | null>(null);
+  const audioInputRef = useRef<HTMLInputElement>(null);
+
+  // Grabación
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordSeconds, setRecordSeconds] = useState(0);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => () => { timerRef.current && clearInterval(timerRef.current); }, []);
+
+  const startRecording = async () => {
+    setError("");
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mr = new MediaRecorder(stream);
+      chunksRef.current = [];
+      mr.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data); };
+      mr.onstop = () => {
+        stream.getTracks().forEach(t => t.stop());
+        const blob = new Blob(chunksRef.current, { type: "audio/webm" });
+        setAudioFile(new File([blob], `grabacion-${Date.now()}.webm`, { type: "audio/webm" }));
+        setIsRecording(false);
+        timerRef.current && clearInterval(timerRef.current);
+      };
+      mr.start(250);
+      mediaRecorderRef.current = mr;
+      setIsRecording(true);
+      setRecordSeconds(0);
+      timerRef.current = setInterval(() => setRecordSeconds(s => s + 1), 1000);
+    } catch {
+      setError("No se pudo acceder al micrófono. Verifica los permisos.");
+    }
+  };
+
+  const stopRecording = () => {
+    mediaRecorderRef.current?.stop();
+    timerRef.current && clearInterval(timerRef.current);
+  };
+
+  const formatTime = (s: number) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
 
   const searchParams = new URLSearchParams(window.location.search);
   const groupId = searchParams.get("group_id");
@@ -170,6 +215,52 @@ export default function CreateMapPage() {
       finishGeneration([], data.public_id);
     } catch (err: unknown) {
       timers.forEach(clearTimeout);
+      setIsGenerating(false);
+      setError(err instanceof Error ? err.message : "Error desconocido");
+    }
+  };
+
+  const AUDIO_ACCEPT = ".mp3,.mp4,.wav,.webm,.ogg,.flac,.m4a";
+  const handleAudioSelect = (file: File) => {
+    if (file.size > 25 * 1024 * 1024) { setError("El audio supera el límite de 25 MB."); return; }
+    setError("");
+    setAudioFile(file);
+  };
+
+  const handleGenerateAudio = async () => {
+    if (!audioFile) return;
+    setIsGenerating(true);
+    setError("");
+    setProgress(5);
+    setCurrentStep("Transcribiendo audio con IA...");
+
+    try {
+      const form = new FormData();
+      form.append("audio", audioFile);
+      const r1 = await fetch(`${API_URL}/maps/transcribe`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${getToken()}` },
+        body: form,
+      });
+      if (!r1.ok) { const e = await r1.json(); throw new Error(e.message); }
+      const { text: transcribed } = await r1.json();
+
+      setProgress(20);
+      setCurrentStep(STEPS[1].label);
+      const timers = startProgressAnimation();
+
+      const searchParams = new URLSearchParams(window.location.search);
+      const group_id = searchParams.get("group_id");
+      const r2 = await fetch(`${API_URL}/maps/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` },
+        body: JSON.stringify({ text: transcribed, group_id: group_id ? parseInt(group_id) : null }),
+      });
+      timers.forEach(clearTimeout);
+      if (!r2.ok) { const e = await r2.json(); throw new Error(e.message); }
+      const data = await r2.json();
+      finishGeneration([], data.public_id);
+    } catch (err: unknown) {
       setIsGenerating(false);
       setError(err instanceof Error ? err.message : "Error desconocido");
     }
@@ -317,19 +408,69 @@ export default function CreateMapPage() {
               </Tabs.Content>
 
               <Tabs.Content value="audio">
-                <div className="p-12 rounded-xl bg-card border border-border shadow-sm">
-                  <div className="text-center">
-                    <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center mx-auto mb-6 border border-border">
-                      <Mic className="w-10 h-10 text-primary" />
+                <div className="rounded-xl bg-card border border-border shadow-sm overflow-hidden">
+                  {!audioFile ? (
+                    <div className="p-6">
+                      {/* Grabación */}
+                      <div className="flex flex-col items-center gap-4 py-6 border-b border-border mb-6">
+                        {!isRecording ? (
+                          <>
+                            <button onClick={startRecording}
+                              className="w-20 h-20 rounded-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center shadow-lg transition-all hover:scale-105 active:scale-95">
+                              <Mic className="w-9 h-9" />
+                            </button>
+                            <p className="text-sm font-semibold text-foreground">Grabar desde el micrófono</p>
+                            <p className="text-xs text-muted-foreground -mt-2">Haz clic para empezar a grabar</p>
+                          </>
+                        ) : (
+                          <>
+                            <div className="relative">
+                              <button onClick={stopRecording}
+                                className="w-20 h-20 rounded-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center shadow-lg transition-all">
+                                <Square className="w-8 h-8 fill-white" />
+                              </button>
+                              <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-400 animate-ping" />
+                              <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500" />
+                            </div>
+                            <p className="text-2xl font-mono font-bold text-red-500">{formatTime(recordSeconds)}</p>
+                            <p className="text-xs text-muted-foreground">Grabando… haz clic en el botón para detener</p>
+                          </>
+                        )}
+                      </div>
+
+                      {/* Subir archivo */}
+                      <label className="flex items-center gap-3 px-4 py-3 rounded-xl border border-dashed border-border hover:border-primary/40 hover:bg-muted/30 cursor-pointer transition-colors">
+                        <Upload className="w-5 h-5 text-muted-foreground shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-foreground">Subir archivo de audio</p>
+                          <p className="text-xs text-muted-foreground">MP3, WAV, M4A, WEBM, OGG, FLAC · máx. 25 MB</p>
+                        </div>
+                        <input ref={audioInputRef} type="file" accept={AUDIO_ACCEPT} className="hidden"
+                          onChange={e => e.target.files?.[0] && handleAudioSelect(e.target.files[0])} />
+                      </label>
+
+                      {error && <p className="mt-3 text-sm text-destructive font-medium">{error}</p>}
                     </div>
-                    <h3 className="text-lg font-medium text-foreground mb-1">
-                      Grabar explicación
-                    </h3>
-                    <p className="text-muted-foreground mb-6 text-sm">
-                      Habla sobre el tema y nosotros extraeremos los conceptos
-                    </p>
-                    <p className="text-sm text-muted-foreground">Próximamente</p>
-                  </div>
+                  ) : (
+                    <div className="p-6">
+                      <div className="flex items-center gap-3 p-4 rounded-xl bg-primary/5 border border-primary/20 mb-4">
+                        <Mic className="w-5 h-5 text-primary shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-bold text-foreground truncate">{audioFile.name}</p>
+                          <p className="text-xs text-muted-foreground">{(audioFile.size / (1024 * 1024)).toFixed(2)} MB</p>
+                        </div>
+                        <button type="button" onClick={() => setAudioFile(null)} className="text-muted-foreground hover:text-red-500 transition-colors">
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                      <p className="text-xs text-muted-foreground mb-4 text-center">El audio será transcrito automáticamente y luego se generará el mapa.</p>
+                      {error && <p className="mb-3 text-sm text-destructive font-medium">{error}</p>}
+                      <button onClick={handleGenerateAudio}
+                        className="w-full py-3 rounded-md bg-primary hover:bg-primary/90 text-primary-foreground font-medium transition-colors shadow-sm flex items-center justify-center gap-2">
+                        <Sparkles className="w-5 h-5" /> Transcribir y generar mapa
+                      </button>
+                    </div>
+                  )}
                 </div>
               </Tabs.Content>
             </Tabs.Root>

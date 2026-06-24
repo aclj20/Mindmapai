@@ -77,7 +77,8 @@ export default function PublicProfilePage() {
   }
 
   const initials = getAvatarInitials(user.name);
-  const memberSince = new Date(user.created_at).toLocaleDateString("es-ES", { month: "long", year: "numeric" });
+  const _utc = (s: string) => s.includes('T') ? s : s.replace(' ', 'T') + 'Z';
+  const memberSince = new Date(_utc(user.created_at)).toLocaleDateString("es-ES", { month: "long", year: "numeric" });
   const xpPct = Math.min(100, Math.round((user.xp / user.xp_to_next) * 100));
 
   return (
@@ -187,7 +188,7 @@ export default function PublicProfilePage() {
                       <p className="font-bold text-sm text-foreground">{a.name}</p>
                       <p className="text-xs text-muted-foreground leading-snug">{a.description}</p>
                       <p className="text-[10px] text-muted-foreground mt-0.5">
-                        {new Date(a.unlocked_at).toLocaleDateString("es-ES", { day: "2-digit", month: "short", year: "numeric" })}
+                        {new Date(_utc(a.unlocked_at)).toLocaleDateString("es-ES", { day: "2-digit", month: "short", year: "numeric" })}
                       </p>
                     </div>
                     <div className="text-right shrink-0">
@@ -231,7 +232,7 @@ export default function PublicProfilePage() {
                         </div>
                       </div>
                       <p className="font-bold text-sm text-foreground group-hover:text-primary transition-colors leading-snug line-clamp-2">{m.title}</p>
-                      <p className="text-xs text-muted-foreground mt-1">{m.node_count} nodos · {new Date(m.updated_at).toLocaleDateString("es-ES", { day: "2-digit", month: "short" })}</p>
+                      <p className="text-xs text-muted-foreground mt-1">{m.node_count} nodos · {new Date(_utc(m.updated_at)).toLocaleDateString("es-ES", { day: "2-digit", month: "short" })}</p>
                     </Link>
                   </motion.div>
                 ))}

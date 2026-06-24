@@ -590,6 +590,12 @@ export default function ConceptMapView() {
 
     socket.on("connect", () => {
       console.log("SOCKET: Conexión establecida con ID:", socket.id);
+      socket.emit("join-map", {
+        mapId: id,
+        userId: authUserRef.current?.id,
+        name: authUserRef.current?.name,
+        email: authUserRef.current?.email,
+      });
     });
 
     socket.on("connect_error", (err) => {
@@ -598,13 +604,6 @@ export default function ConceptMapView() {
 
     socket.on("disconnect", (reason) => {
       console.log("SOCKET: Desconectado de socket.io. Razón:", reason);
-    });
-
-    socket.emit("join-map", {
-      mapId: id,
-      userId: authUserRef.current.id,
-      name: authUserRef.current.name,
-      email: authUserRef.current.email
     });
 
     socket.on("active-users", (users: any[]) => {
@@ -3012,7 +3011,7 @@ export default function ConceptMapView() {
                 <div className="p-4 bg-muted rounded-xl border border-border/50">
                   <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">Creado el</span>
                   <span className="text-xs font-bold text-foreground">
-                    {createdAt ? new Date(createdAt).toLocaleDateString("es-ES", {
+                    {createdAt ? new Date(createdAt.includes('T') ? createdAt : createdAt.replace(' ', 'T') + 'Z').toLocaleDateString("es-ES", {
                       year: "numeric",
                       month: "long",
                       day: "numeric"

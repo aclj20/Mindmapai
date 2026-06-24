@@ -207,9 +207,10 @@ export default function AdminPanel() {
 
   const criteriaLabel = (type: string) => CRITERIA_TYPES.find(c => c.value === type)?.label ?? type;
 
+  const toUTC = (s: string) => s.includes('T') ? s : s.length === 10 ? s + 'T00:00:00Z' : s.replace(' ', 'T') + 'Z';
   const isActiveChallenge = (c: Challenge) => {
     const now = Date.now();
-    return c.is_active === 1 && now >= new Date(c.week_start).getTime() && now <= new Date(c.week_end).getTime();
+    return c.is_active === 1 && now >= new Date(toUTC(c.week_start)).getTime() && now <= new Date(toUTC(c.week_end)).getTime();
   };
 
   // ── RENDER ──────────────────────────────────────────────────────────────────
@@ -683,8 +684,9 @@ function ChallengeCard({ c, onEdit, onDelete, onToggle, criteriaLabel, isActive 
   onToggle: (c: Challenge) => void; criteriaLabel: (t: string) => string; isActive: boolean;
 }) {
   const now = Date.now();
-  const past = now > new Date(c.week_end).getTime();
-  const upcoming = now < new Date(c.week_start).getTime();
+  const _toUTC = (s: string) => s.includes('T') ? s : s.length === 10 ? s + 'T00:00:00Z' : s.replace(' ', 'T') + 'Z';
+  const past = now > new Date(_toUTC(c.week_end)).getTime();
+  const upcoming = now < new Date(_toUTC(c.week_start)).getTime();
 
   return (
     <motion.div
@@ -714,7 +716,7 @@ function ChallengeCard({ c, onEdit, onDelete, onToggle, criteriaLabel, isActive 
             <Star className="w-3 h-3 fill-amber-400" /> {c.xp_reward} XP
           </span>
           <span className="text-[11px] text-slate-500">
-            {new Date(c.week_start).toLocaleDateString("es-ES", { day: "2-digit", month: "short" })} → {new Date(c.week_end).toLocaleDateString("es-ES", { day: "2-digit", month: "short" })}
+            {new Date(_toUTC(c.week_start)).toLocaleDateString("es-ES", { day: "2-digit", month: "short" })} → {new Date(_toUTC(c.week_end)).toLocaleDateString("es-ES", { day: "2-digit", month: "short" })}
           </span>
         </div>
       </div>

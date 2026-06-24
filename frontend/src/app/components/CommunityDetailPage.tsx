@@ -297,8 +297,9 @@ export default function CommunityDetailPage() {
 
   const isMember = !!community.is_member;
   const initials = community.name[0]?.toUpperCase();
+  const _utc = (s: string) => s.includes('T') ? s : s.replace(' ', 'T') + 'Z';
   const createdDate = community.created_at
-    ? new Date(community.created_at).toLocaleDateString("es-ES", { month: "long", year: "numeric" })
+    ? new Date(_utc(community.created_at)).toLocaleDateString("es-ES", { month: "long", year: "numeric" })
     : null;
 
   return (
