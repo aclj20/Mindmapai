@@ -11,13 +11,14 @@ let _saveTimer = null;
 
 function save() {
   if (_saveTimer) clearTimeout(_saveTimer);
-  // Escribe inmediatamente + programa una escritura de respaldo
-  const data = _db.export();
-  fs.writeFileSync(DB_PATH, Buffer.from(data));
   _saveTimer = setTimeout(() => {
-    const d = _db.export();
-    fs.writeFileSync(DB_PATH, Buffer.from(d));
-  }, 500);
+    try {
+      const data = _db.export();
+      fs.writeFileSync(DB_PATH, Buffer.from(data));
+    } catch (err) {
+      console.error("Error al guardar la base de datos en disco:", err.message);
+    }
+  }, 100);
 }
 
 function flushSave() {
