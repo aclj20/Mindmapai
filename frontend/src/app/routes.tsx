@@ -21,6 +21,7 @@ import PostDetailPage from "./components/PostDetailPage";
 import PrivateRoute from "./components/PrivateRoute";
 import GuestRoute from "./components/GuestRoute";
 import NotFoundPage from "./components/NotFoundPage";
+import ProtectedLayout from "./components/ProtectedLayout";
 
 export const router = createBrowserRouter([
   {
@@ -43,109 +44,76 @@ export const router = createBrowserRouter([
     path: "/community",
     element: (
       <PrivateRoute>
-        <CommunityPage />
+        <ProtectedLayout>
+          <CommunityPage />
+        </ProtectedLayout>
       </PrivateRoute>
     ),
   },
   {
-    path: "/dashboard",
     element: (
       <PrivateRoute>
-        <Dashboard />
+        <ProtectedLayout />
       </PrivateRoute>
     ),
-  },
-  {
-    path: "/dashboard/student",
-    element: (
-      <PrivateRoute>
-        <Dashboard />
-      </PrivateRoute>
-    ),
-  },
-  {
-    path: "/map/create",
-    element: (
-      <PrivateRoute>
-        <CreateMapPage />
-      </PrivateRoute>
-    ),
-  },
-  {
-    path: "/map/:id",
-    element: (
-      <PrivateRoute>
-        <ConceptMapView />
-      </PrivateRoute>
-    ),
-  },
-  {
-    path: "/leaderboard",
-    element: (
-      <PrivateRoute>
-        <Leaderboard />
-      </PrivateRoute>
-    ),
-  },
-  {
-    path: "/profile",
-    element: (
-      <PrivateRoute>
-        <ProfilePage />
-      </PrivateRoute>
-    ),
-  },
-  {
-    path: "/profile/:id",
-    element: (
-      <PrivateRoute>
-        <PublicProfilePage />
-      </PrivateRoute>
-    ),
-  },
-  {
-    path: "/groups",
-    element: (
-      <PrivateRoute>
-        <GroupsPage />
-      </PrivateRoute>
-    ),
-  },
-  {
-    path: "/groups/:id",
-    element: (
-      <PrivateRoute>
-        <GroupDetailPage />
-      </PrivateRoute>
-    ),
-  },
-  {
-    path: "/achievements",
-    element: (
-      <PrivateRoute>
-        <AchievementsPage />
-      </PrivateRoute>
-    ),
-  },
-  {
-    path: "/settings",
-    element: (
-      <PrivateRoute>
-        <SettingsPage />
-      </PrivateRoute>
-    ),
-  },
-  {
-    path: "/communities",
-    element: <PrivateRoute><CommunitiesPage /></PrivateRoute>,
-  },
-  {
-    path: "/c/:slug",
-    element: <PrivateRoute><CommunityDetailPage /></PrivateRoute>,
-  },
-  {
-    path: "/c/:slug/post/:postId",
-    element: <PrivateRoute><PostDetailPage /></PrivateRoute>,
+    children: [
+      {
+        path: "/dashboard",
+        element: <Dashboard />,
+      },
+      {
+        path: "/dashboard/student",
+        element: <Dashboard />,
+      },
+      {
+        path: "/map/create",
+        element: <CreateMapPage />,
+      },
+      {
+        path: "/map/:id",
+        element: <ConceptMapView />,
+      },
+      {
+        path: "/leaderboard",
+        element: <Leaderboard />,
+      },
+      {
+        path: "/profile",
+        element: <ProfilePage />,
+      },
+      {
+        path: "/profile/:id",
+        element: <PublicProfilePage />,
+      },
+      {
+        path: "/groups",
+        element: <GroupsPage />,
+      },
+      {
+        path: "/groups/:id",
+        element: <GroupDetailPage />,
+      },
+      {
+        path: "/achievements",
+        element: <AchievementsPage />,
+      },
+      {
+        path: "/settings",
+        element: <SettingsPage />,
+      },
+      {
+        path: "/communities",
+        element: <CommunitiesPage />,
+      },
+      {
+        path: "/c/:slug",
+        element: <CommunityDetailPage />,
+      },
+      {
+        path: "/c/:slug/post/:postId",
+        element: <PostDetailPage />,
+      },
+    ],
   },
   {
     path: "/admin/login",

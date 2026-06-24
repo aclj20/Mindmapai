@@ -24,7 +24,6 @@ import { motion } from "motion/react";
 import * as Progress from "@radix-ui/react-progress";
 import * as Dialog from "@radix-ui/react-dialog";
 import MobileNav from "./MobileNav";
-import InteractiveTutorial from "./InteractiveTutorial";
 import { getAuthUser, getAvatarInitials, getToken, logout } from "../hooks/useAuth";
 import { toast } from "sonner";
 
@@ -108,9 +107,6 @@ export default function Dashboard() {
   const [totalNodes, setTotalNodes] = useState(0);
   const [mapsThisWeek, setMapsThisWeek] = useState(0);
 
-  // Tutorial interactivo
-  const [showTutorial, setShowTutorial] = useState(false);
-
   // Estados de grupos
   const [groups, setGroups] = useState<Group[]>([]);
   const [groupsLoading, setGroupsLoading] = useState(true);
@@ -168,10 +164,10 @@ export default function Dashboard() {
       .then(handleFetchResponse)
       .then((data) => {
         setUserData(data);
-        // Mostrar tutorial si el usuario no lo ha visto (DB o localStorage)
+        // Marcar tutorial pendiente si el usuario no lo ha visto
         const localDone = localStorage.getItem("tutorial_done");
         if (!localDone && !data.has_seen_tutorial) {
-          setTimeout(() => setShowTutorial(true), 600);
+          localStorage.setItem("tutorial_should_start", "true");
         }
       })
       .catch(() => {});
@@ -286,7 +282,7 @@ export default function Dashboard() {
             <Brain className="w-8 h-8 text-primary animate-pulse" />
             <span className="text-xl font-bold tracking-tight text-foreground">MindMap AI</span>
           </div>
-          <div className="hidden md:flex items-center gap-6">
+          <div className="hidden md:flex items-center gap-6" data-tutorial="nav-links">
             <Link
               to="/communities"
               className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors text-sm font-semibold"
@@ -426,6 +422,7 @@ export default function Dashboard() {
                   </button>
                   <Link
                     to="/map/create"
+                    data-tutorial="btn-crear-mapa"
                     className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary hover:bg-primary-hover text-primary-foreground transition-colors font-semibold text-xs shadow-sm"
                   >
                     <Plus className="w-3.5 h-3.5" />
@@ -749,10 +746,6 @@ export default function Dashboard() {
         </Dialog.Portal>
       </Dialog.Root>
 
-      {/* Tutorial interactivo — primera vez */}
-      {showTutorial && (
-        <InteractiveTutorial onComplete={() => setShowTutorial(false)} />
-      )}
     </div>
   );
 }

@@ -304,7 +304,7 @@ export default function CreateMapPage() {
             </div>
 
             <Tabs.Root defaultValue="text" className="space-y-6">
-              <Tabs.List className="grid grid-cols-3 gap-2 p-1 rounded-xl bg-card border border-border shadow-sm">
+              <Tabs.List data-tutorial="create-tabs" className="grid grid-cols-3 gap-2 p-1 rounded-xl bg-card border border-border shadow-sm">
                 <Tabs.Trigger
                   value="text"
                   className="hover:cursor-pointer px-6 py-2.5 rounded-md text-muted-foreground font-medium transition-all hover:bg-muted data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center justify-center gap-2"
@@ -343,6 +343,7 @@ export default function CreateMapPage() {
                     <p className="mt-2 text-sm text-destructive font-medium">{error}</p>
                   )}
                   <button
+                    data-tutorial="btn-generate"
                     onClick={handleGenerate}
                     disabled={!text.trim()}
                     className="mt-4 w-full py-3 rounded-md bg-primary hover:bg-primary-hover text-primary-foreground font-medium transition-colors shadow-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"

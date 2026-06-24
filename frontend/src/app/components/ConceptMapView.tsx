@@ -1521,7 +1521,7 @@ export default function ConceptMapView() {
             );
           })()}
           
-          <div className="flex items-center gap-2 px-1 py-1 bg-muted rounded-xl border border-border">
+          <div data-tutorial="top-features" className="flex items-center gap-2 px-1 py-1 bg-muted rounded-xl border border-border">
             <button
               onClick={() => {
                 const next = !isPublic;
@@ -1596,7 +1596,7 @@ export default function ConceptMapView() {
         )}
 
         {userRole !== "viewer" && (
-          <div className="absolute left-6 top-1/2 -translate-y-1/2 z-20 flex flex-col gap-2 p-2 bg-card border border-border rounded-2xl shadow-xl">
+          <div data-tutorial="left-toolbar" className="absolute left-6 top-1/2 -translate-y-1/2 z-20 flex flex-col gap-2 p-2 bg-card border border-border rounded-2xl shadow-xl">
              <button
                onClick={() => setActiveTool("select")}
                className={`hover:cursor-pointer p-3 rounded-xl transition-all ${
@@ -1688,7 +1688,7 @@ export default function ConceptMapView() {
           </div>
         )}
 
-        <div className="absolute left-1/2 -translate-x-1/2 bottom-8 z-20 flex items-center gap-4">
+        <div data-tutorial="bottom-controls" className="absolute left-1/2 -translate-x-1/2 bottom-8 z-20 flex items-center gap-4">
            <div className="flex items-center gap-2 p-1.5 bg-card border border-border rounded-xl shadow-lg">
               <button onClick={() => setZoom(z => Math.max(0.2, z - 0.1))} className="hover:cursor-pointer p-2 rounded-lg text-muted-foreground hover:bg-muted"><Minus className="w-4 h-4" /></button>
               <span className="text-xs font-bold w-12 text-center text-foreground">{Math.round(zoom * 100)}%</span>
@@ -1696,27 +1696,27 @@ export default function ConceptMapView() {
            </div>
            <div className="flex items-center gap-2 p-1.5 bg-card border border-border rounded-xl shadow-lg">
                 <button onClick={handleCenterMap} className="hover:cursor-pointer flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold text-muted-foreground hover:bg-muted">
-                 <Maximize className="w-3.5 h-3.5" /> Centrar mapa
-              </button>
-              <div className="w-px h-4 bg-border" />
-              <button onClick={() => setShowExportModal(true)} className="hover:cursor-pointer flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold text-muted-foreground hover:bg-muted">
-                 <Download className="w-3.5 h-3.5" /> Exportar
-              </button>
-              <div className="w-px h-4 bg-border" />
-              <button
-                onClick={isReading ? handleStopReading : handleReadAloud}
-                aria-label={isReading ? "Detener lectura" : "Leer mapa en voz alta"}
-                className={`hover:cursor-pointer flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
-                  isReading
-                    ? "text-primary bg-primary-subtle hover:bg-primary/20"
-                    : "text-muted-foreground hover:bg-muted"
-                }`}
-              >
-                {isReading ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
-                {isReading ? "Detener" : "Leer mapa"}
-              </button>
-           </div>
-        </div>
+                  <Maximize className="w-3.5 h-3.5" /> Centrar mapa
+               </button>
+               <div className="w-px h-4 bg-border" />
+               <button onClick={() => setShowExportModal(true)} className="hover:cursor-pointer flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold text-muted-foreground hover:bg-muted">
+                  <Download className="w-3.5 h-3.5" /> Exportar
+               </button>
+               <div className="w-px h-4 bg-border" />
+               <button
+                 onClick={isReading ? handleStopReading : handleReadAloud}
+                 aria-label={isReading ? "Detener lectura" : "Leer mapa en voz alta"}
+                 className={`hover:cursor-pointer flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+                   isReading
+                     ? "text-primary bg-primary-subtle hover:bg-primary/20"
+                     : "text-muted-foreground hover:bg-muted"
+                 }`}
+               >
+                 {isReading ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+                 {isReading ? "Detener" : "Leer mapa"}
+               </button>
+            </div>
+         </div>
 
         {/* Contenido accesible para screen readers — visualmente oculto */}
         <section className="sr-only" aria-label={`Mapa conceptual: ${mapTitle}`}>
