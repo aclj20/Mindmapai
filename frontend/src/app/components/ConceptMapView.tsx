@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import { io } from "socket.io-client";
 import { getToken, logout, getAvatarInitials, getAuthUser } from "../hooks/useAuth";
 import { jsPDF } from "jspdf";
 
@@ -122,6 +123,11 @@ export default function ConceptMapView() {
   // Estados de barra de herramientas y edición
   const [activeTool, setActiveTool] = useState<"select" | "concept" | "text" | "shape" | "eraser">("select");
   const [draggedNodeId, setDraggedNodeId] = useState<string | null>(null);
+  const draggedNodeIdRef = useRef<string | null>(null);
+  draggedNodeIdRef.current = draggedNodeId;
+
+  const authUserRef = useRef<any>(null);
+  authUserRef.current = authUser;
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showCreateNodeModal, setShowCreateNodeModal] = useState(false);
   const [newNodeCoords, setNewNodeCoords] = useState({ x: 0, y: 0 });
@@ -167,6 +173,12 @@ export default function ConceptMapView() {
   const [nodeCommentsLoading, setNodeCommentsLoading] = useState(false);
   const [nodeSidebarTab, setNodeSidebarTab] = useState<"info" | "comments">("info");
 
+  // WebSockets states & refs
+  const socketRef = useRef<any>(null);
+  const [activeCollaborators, setActiveCollaborators] = useState<{ userId: number; name: string; email: string; socketId: string }[]>([]);
+  const [peerCursors, setPeerCursors] = useState<Record<string, { x: number; y: number; name: string; userId: number }>>({});
+  const [peerSelections, setPeerSelections] = useState<Record<string, string>>({}); // socketId -> nodeId
+
   const saveMapState = useCallback((currentNodes: Node[]) => {
     if (userRole !== "owner" && userRole !== "editor") return Promise.resolve();
     const postConnections: { from_node_id: number; to_node_id: number }[] = [];
@@ -203,14 +215,16 @@ export default function ConceptMapView() {
     })
       .then((r) => {
         if (!r.ok) throw new Error("Error al persistir el estado del mapa");
+        if (socketRef.current) {
+          socketRef.current.emit("map-changed");
+        }
         return r.json();
       })
       .catch((err) => {
         console.error(err);
         toast.error("No se pudo guardar el estado del mapa en el servidor.");
       });
-  }, [id]);
-
+  }, [id, userRole]);
   const handleConsultAI = (e: React.FormEvent) => {
     e.preventDefault();
     if (!aiChatQuery.trim() || aiLoading) return;
@@ -500,13 +514,14 @@ export default function ConceptMapView() {
       .catch((err) => toast.error(err.message));
   };
 
-  useEffect(() => {
+  const fetchMapData = useCallback((showLoading = true) => {
     if (!id) return;
+    if (showLoading) setLoading(true);
     fetch(`${API_URL}/maps/${id}`, {
       headers: { Authorization: `Bearer ${getToken()}` },
     })
       .then(async (r) => {
-        if (r.status === 403) { setIsPrivate(true); setLoading(false); return null; }
+        if (r.status === 403) { setIsPrivate(true); if (showLoading) setLoading(false); return null; }
         return handleFetchResponse(r);
       })
       .then((data) => {
@@ -556,8 +571,211 @@ export default function ConceptMapView() {
         setNodes(Array.from(nodeMap.values()));
       })
       .catch(() => setMapTitle("Error al cargar"))
-      .finally(() => setLoading(false));
+      .finally(() => { if (showLoading) setLoading(false); });
   }, [id, handleFetchResponse]);
+
+  const fetchMapDataRef = useRef(fetchMapData);
+  fetchMapDataRef.current = fetchMapData;
+
+  useEffect(() => {
+    fetchMapData(true);
+  }, [id]);
+
+  useEffect(() => {
+    if (!id || !authUserRef.current) return;
+
+    console.log("SOCKET: Inicializando conexión a socket.io...");
+    const socket = io("http://localhost:3001", { transports: ["websocket"] });
+    socketRef.current = socket;
+
+    socket.on("connect", () => {
+      console.log("SOCKET: Conexión establecida con ID:", socket.id);
+    });
+
+    socket.on("connect_error", (err) => {
+      console.error("SOCKET: Error de conexión:", err);
+    });
+
+    socket.on("disconnect", (reason) => {
+      console.log("SOCKET: Desconectado de socket.io. Razón:", reason);
+    });
+
+    socket.emit("join-map", {
+      mapId: id,
+      userId: authUserRef.current.id,
+      name: authUserRef.current.name,
+      email: authUserRef.current.email
+    });
+
+    socket.on("active-users", (users: any[]) => {
+      setActiveCollaborators(users);
+      // Limpiar cursores y selecciones de sockets desconectados
+      const activeSids = users.map(u => u.socketId);
+      setPeerCursors((prev) => {
+        const next = { ...prev };
+        Object.keys(next).forEach(sid => {
+          if (!activeSids.includes(sid)) delete next[sid];
+        });
+        return next;
+      });
+      setPeerSelections((prev) => {
+        const next = { ...prev };
+        Object.keys(next).forEach(sid => {
+          if (!activeSids.includes(sid)) delete next[sid];
+        });
+        return next;
+      });
+    });
+
+    socket.on("peer-mouse-move", ({ socketId, userId, name, x, y }: any) => {
+      setPeerCursors((prev) => ({
+        ...prev,
+        [socketId]: { x, y, name, userId }
+      }));
+    });
+
+    socket.on("peer-node-select", ({ socketId, nodeId }: any) => {
+      setPeerSelections((prev) => ({
+        ...prev,
+        [socketId]: nodeId
+      }));
+    });
+
+    socket.on("peer-node-drag", ({ nodeId, x, y }: any) => {
+      setNodes((prevNodes) =>
+        prevNodes.map((n) => (n.id === nodeId && draggedNodeIdRef.current !== nodeId ? { ...n, x, y } : n))
+      );
+    });
+
+    socket.on("peer-map-changed", () => {
+      const isUserEditing = document.activeElement?.tagName === "INPUT" || document.activeElement?.tagName === "TEXTAREA";
+      if (!draggedNodeIdRef.current && !isUserEditing) {
+        fetchMapDataRef.current(false);
+      }
+    });
+
+    return () => {
+      console.log("SOCKET: Desmontando useEffect, cerrando socket...");
+      socket.disconnect();
+    };
+  }, [id]);
+
+  // Emitir cambios en la selección de nodos
+  useEffect(() => {
+    if (socketRef.current) {
+      socketRef.current.emit("node-select", { nodeId: selectedNode });
+    }
+  }, [selectedNode]);
+
+  // Referencias para evitar recrear el useEffect de teclado en cada render
+  const selectedNodeRef = useRef(selectedNode);
+  selectedNodeRef.current = selectedNode;
+
+  const userRoleRef = useRef(userRole);
+  userRoleRef.current = userRole;
+
+  const handleCenterMapRef = useRef<any>(null);
+  const handleDeleteNodeRef = useRef<any>(null);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const activeEl = document.activeElement;
+      const isEditable = activeEl && (
+        activeEl.tagName === "INPUT" ||
+        activeEl.tagName === "TEXTAREA" ||
+        activeEl.tagName === "SELECT" ||
+        activeEl.hasAttribute("contenteditable") ||
+        (activeEl as HTMLElement).isContentEditable
+      );
+      if (isEditable) return;
+
+      const step = 30; // Desplazamiento en píxeles
+
+      switch (e.key.toLowerCase()) {
+        // Movimiento WASD / Flechas
+        case "w":
+        case "arrowup":
+          setPan((p) => ({ ...p, y: p.y + step }));
+          e.preventDefault();
+          break;
+        case "s":
+        case "arrowdown":
+          setPan((p) => ({ ...p, y: p.y - step }));
+          e.preventDefault();
+          break;
+        case "a":
+        case "arrowleft":
+          setPan((p) => ({ ...p, x: p.x + step }));
+          e.preventDefault();
+          break;
+        case "d":
+        case "arrowright":
+          setPan((p) => ({ ...p, x: p.x - step }));
+          e.preventDefault();
+          break;
+
+        // Zoom (+ / -) y Centrar (0 / C)
+        case "+":
+        case "=":
+          setZoom((z) => Math.min(2, z + 0.1));
+          e.preventDefault();
+          break;
+        case "-":
+        case "_":
+          setZoom((z) => Math.max(0.2, z - 0.1));
+          e.preventDefault();
+          break;
+        case "0":
+        case "c":
+          if (handleCenterMapRef.current) {
+            handleCenterMapRef.current();
+          }
+          e.preventDefault();
+          break;
+
+        // Herramientas (1=select, 2=concept, 3=eraser)
+        case "1":
+        case "v":
+          setActiveTool("select");
+          e.preventDefault();
+          break;
+        case "2":
+        case "n":
+          setActiveTool("concept");
+          e.preventDefault();
+          break;
+        case "3":
+        case "r":
+          setActiveTool("eraser");
+          e.preventDefault();
+          break;
+
+        // Acciones sobre nodos (Delete/Backspace para borrar)
+        case "delete":
+        case "backspace":
+          if (selectedNodeRef.current && userRoleRef.current !== "viewer") {
+            if (handleDeleteNodeRef.current) {
+              handleDeleteNodeRef.current(selectedNodeRef.current);
+            }
+            e.preventDefault();
+          }
+          break;
+
+        // Escape para limpiar selección y cerrar barras
+        case "escape":
+          setSelectedNode(null);
+          setShowComments(false);
+          setShowAIChat(false);
+          e.preventDefault();
+          break;
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
 
   const fetchComments = useCallback(() => {
     if (!id) return;
@@ -625,13 +843,27 @@ export default function ConceptMapView() {
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
+    // Calcular coordenadas del mouse en el lienzo (coordenadas SVG) para emitir
+    const rect = svgRef.current?.getBoundingClientRect();
+    if (rect) {
+      const mouseX = (e.clientX - rect.left - pan.x) / zoom;
+      const mouseY = (e.clientY - rect.top - pan.y) / zoom;
+      if (socketRef.current) {
+        socketRef.current.emit("mouse-move", { x: mouseX, y: mouseY });
+      }
+    }
+
     if (draggedNodeId && userRole !== "viewer") {
       const dx = (e.clientX - dragStart.x) / zoom;
       const dy = (e.clientY - dragStart.y) / zoom;
       setNodes((prevNodes) =>
         prevNodes.map((n) => {
           if (n.id === draggedNodeId) {
-            return { ...n, x: n.x + dx, y: n.y + dy };
+            const updated = { ...n, x: n.x + dx, y: n.y + dy };
+            if (socketRef.current) {
+              socketRef.current.emit("node-drag", { nodeId: n.id, x: updated.x, y: updated.y });
+            }
+            return updated;
           }
           return n;
         })
@@ -676,6 +908,7 @@ export default function ConceptMapView() {
     saveMapState(updatedNodes);
     toast.success("Concepto eliminado");
   };
+  handleDeleteNodeRef.current = handleDeleteNode;
 
   const handleDeleteConnection = (fromId: string, toId: string) => {
     if (userRole === "viewer") return;
@@ -1091,6 +1324,7 @@ export default function ConceptMapView() {
       y: centerY - mainNode.y * zoom,
     });
   }, [nodes, zoom]);
+  handleCenterMapRef.current = handleCenterMap;
 
   const svgToImage = (svgText: string) =>
     new Promise<HTMLImageElement>((resolve, reject) => {
@@ -1263,11 +1497,14 @@ export default function ConceptMapView() {
               <div className="flex -space-x-2">
                 {allMembers.slice(0, 3).map((m, i) => {
                   const avatarUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(m.name)}&mouth=smile,default&eyes=default,happy,wink`;
+                  const isOnline = activeCollaborators.some(ac => ac.name === m.name) || (authUser && authUser.name === m.name);
                   return (
                     <div
                       key={i}
-                      className="w-8 h-8 rounded-full border-2 border-background overflow-hidden bg-muted flex items-center justify-center shadow-sm"
-                      title={`${m.name} (${m.role === 'owner' ? 'Propietario' : m.role === 'editor' ? 'Editor' : 'Lector'})`}
+                      className={`w-8 h-8 rounded-full border-2 overflow-hidden bg-muted flex items-center justify-center shadow-sm transition-all duration-300 ${
+                        isOnline ? "border-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]" : "border-background"
+                      }`}
+                      title={`${m.name} (${m.role === 'owner' ? 'Propietario' : m.role === 'editor' ? 'Editor' : 'Lector'}) ${isOnline ? '(En línea)' : '(Desconectado)'}`}
                     >
                       <img src={avatarUrl} alt={m.name} className="w-full h-full object-cover" />
                     </div>
@@ -1592,6 +1829,11 @@ export default function ConceptMapView() {
                 const width = node.isSticky ? 160 : getNodeWidth(node.label, node.category);
                 const height = node.isSticky ? 160 : getNodeHeight(node.category);
 
+                const peerSelecting = Object.entries(peerSelections).find(([sid, nid]) => nid === node.id);
+                const colorsList = ["#ef4444", "#3b82f6", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899"];
+                const peerIndex = peerSelecting ? Math.abs(peerSelecting[0].split('').reduce((acc, c) => acc + c.charCodeAt(0), 0)) % colorsList.length : 0;
+                const peerColor = peerSelecting ? colorsList[peerIndex] : "transparent";
+
                 return (
                   <motion.g
                     key={node.id}
@@ -1625,7 +1867,7 @@ export default function ConceptMapView() {
                         }
                       }
                     }}
-                    className={activeTool === "eraser" ? "" : "cursor-pointer"}
+                    className={`group focus-visible:outline-none ${activeTool === "eraser" ? "" : "cursor-pointer"}`}
                     role="button"
                     tabIndex={0}
                     aria-label={
@@ -1635,6 +1877,20 @@ export default function ConceptMapView() {
                     }
                     aria-pressed={selectedNode === node.id}
                   >
+                    {peerSelecting && (
+                      <rect
+                        x={node.x - width / 2 - 4}
+                        y={node.y - height / 2 - 4}
+                        width={width + 8}
+                        height={height + 8}
+                        rx={node.isSticky ? 14 : (node.category === "main" ? 20 : 16)}
+                        fill="none"
+                        stroke={peerColor}
+                        strokeWidth="2.5"
+                        strokeDasharray="4 3"
+                        className="animate-pulse"
+                      />
+                    )}
                     {node.isSticky ? (
                       <g style={{ filter: "drop-shadow(3px 6px 12px rgba(0,0,0,0.1))" }}>
                         <rect
@@ -1646,6 +1902,7 @@ export default function ConceptMapView() {
                           stroke="#000"
                           strokeWidth="1"
                           strokeOpacity="0.05"
+                          className="transition-all group-focus:stroke-primary group-focus:stroke-[3px] group-focus:stroke-opacity-100 group-focus-visible:stroke-primary group-focus-visible:stroke-[3px] group-focus-visible:stroke-opacity-100"
                           transform={`rotate(${(parseInt(node.id) % 2 === 0 ? 1 : -1) * 2}, ${node.x}, ${node.y})`}
                         />
                         <foreignObject 
@@ -1678,7 +1935,7 @@ export default function ConceptMapView() {
                           fill={colors.fill}
                           stroke={colors.stroke}
                           strokeWidth={isSelected ? "3" : "2"}
-                          className="transition-all"
+                          className="transition-all group-focus:stroke-primary group-focus:stroke-[3.5px] group-focus-visible:stroke-primary group-focus-visible:stroke-[3.5px]"
                         />
                         <text
                           x={node.x}
@@ -1689,7 +1946,6 @@ export default function ConceptMapView() {
                             node.category === "main" ? "text-sm" : "text-xs"
                           }`}
                           fill={colors.text}
-                          style={{ fontFamily: "inherit" }}
                         >
                           {node.label}
                         </text>
@@ -1699,10 +1955,51 @@ export default function ConceptMapView() {
                 );
               })}
             </g>
+
+            {/* Peer Cursors */}
+            <g transform={`translate(${pan.x}, ${pan.y}) scale(${zoom})`}>
+              {Object.entries(peerCursors).map(([socketId, cursor]) => {
+                const colorsList = ["#ef4444", "#3b82f6", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899"];
+                const peerColor = colorsList[Math.abs(socketId.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0)) % colorsList.length];
+                return (
+                  <g key={socketId} style={{ pointerEvents: "none" }}>
+                    <path
+                      d="M0,0 L0,15 L4,12 L8,18 L10,17 L6,11 L11,11 Z"
+                      fill={peerColor}
+                      stroke="white"
+                      strokeWidth="1.5"
+                      transform={`translate(${cursor.x}, ${cursor.y})`}
+                    />
+                    <g transform={`translate(${cursor.x + 8}, ${cursor.y + 15})`}>
+                      <rect
+                        x="0"
+                        y="0"
+                        width={cursor.name.length * 6.5 + 12}
+                        height="18"
+                        rx="4"
+                        fill={peerColor}
+                        stroke="white"
+                        strokeWidth="0.5"
+                      />
+                      <text
+                        x="6"
+                        y="12"
+                        fill="white"
+                        fontSize="9"
+                        fontWeight="bold"
+                        fontFamily="sans-serif"
+                      >
+                        {cursor.name}
+                      </text>
+                    </g>
+                  </g>
+                );
+              })}
+            </g>
           </svg>
         </div>
 
-        {/* Enhanced Node Details Sidebar */}
+        {/* Details Sidebar */}
         <AnimatePresence>
           {selectedNodeData && (
             <motion.div
@@ -1710,55 +2007,48 @@ export default function ConceptMapView() {
               animate={{ x: 0, opacity: 1 }}
               exit={{ x: 400, opacity: 0 }}
               transition={{ type: "spring", bounce: 0, duration: 0.4 }}
-              className="absolute top-0 right-0 h-full w-[360px] bg-card border-l border-border shadow-2xl z-40 flex flex-col"
+              className="absolute top-0 right-0 h-full w-80 bg-card border-l border-border shadow-2xl z-40 flex flex-col"
             >
-              <div className="flex items-center justify-between p-6 pb-0">
-                 <div className="flex items-center gap-3">
-                    <div>
-                       <h2 className="text-lg font-bold text-foreground leading-tight">{selectedNodeData.label}</h2>
-                       <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">
-                          {selectedNodeData.category === "main" ? "Sistema" : "Concepto"}
-                       </p>
-                    </div>
-                 </div>
-                 <button onClick={() => setSelectedNode(null)} className="p-2 text-muted-foreground hover:text-foreground">
+              <div className="flex items-center justify-between p-6 border-b border-border">
+                 <h2 className="text-xl font-bold text-foreground tracking-tight flex items-center gap-2">
+                    <StickyNote className="w-5 h-5 text-primary" />
+                    Concepto
+                 </h2>
+                 <button 
+                    onClick={() => setSelectedNode(null)}
+                    className="p-2 -mr-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                 >
                     <X className="w-5 h-5" />
                  </button>
               </div>
 
-              <div className="px-4 pt-3 pb-0">
-                 <div className="flex border-b border-border">
-                    <button
-                      onClick={() => setNodeSidebarTab("info")}
-                      className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-bold transition-all relative ${
-                        nodeSidebarTab === "info" ? "text-primary" : "text-muted-foreground hover:text-foreground"
-                      }`}
-                    >
-                       <BookMarked className="w-3.5 h-3.5" />
-                       Información
-                       {nodeSidebarTab === "info" && <motion.div layoutId="nodeSidebarTab" className="absolute bottom-0 left-0 w-full h-0.5 bg-primary" />}
-                    </button>
-                    <button
-                      onClick={() => { setNodeSidebarTab("comments"); fetchNodeComments(selectedNode!); }}
-                      className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-bold transition-all relative ${
-                        nodeSidebarTab === "comments" ? "text-primary" : "text-muted-foreground hover:text-foreground"
-                      }`}
-                    >
-                       <MessageSquare className="w-3.5 h-3.5" />
-                       Comentarios
-                       {nodeComments.length > 0 && nodeSidebarTab !== "comments" && (
-                         <span className="ml-1 px-1.5 py-0.5 text-[9px] font-extrabold bg-primary text-primary-foreground rounded-full">
-                           {nodeComments.length}
-                         </span>
-                       )}
-                       {nodeSidebarTab === "comments" && <motion.div layoutId="nodeSidebarTab" className="absolute bottom-0 left-0 w-full h-0.5 bg-primary" />}
-                    </button>
-                 </div>
+              {/* Tabs for Sidebar */}
+              <div className="px-6 border-b border-border flex gap-4 bg-muted/20">
+                <button
+                  onClick={() => setNodeSidebarTab("info")}
+                  className={`py-3 text-xs font-bold border-b-2 transition-all ${
+                    nodeSidebarTab === "info"
+                      ? "border-primary text-primary"
+                      : "border-transparent text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Información
+                </button>
+                <button
+                  onClick={() => setNodeSidebarTab("comments")}
+                  className={`py-3 text-xs font-bold border-b-2 transition-all ${
+                    nodeSidebarTab === "comments"
+                      ? "border-primary text-primary"
+                      : "border-transparent text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Comentarios
+                </button>
               </div>
 
               {nodeSidebarTab === "comments" ? (
-                <div className="flex flex-col flex-1 overflow-hidden">
-                  <div className="flex-1 overflow-y-auto p-5 space-y-4">
+                <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+                  <div className="flex-1 overflow-y-auto p-6 space-y-6">
                     {nodeCommentsLoading ? (
                       <div className="text-center py-8 text-xs text-muted-foreground font-semibold">Cargando comentarios...</div>
                     ) : nodeComments.length === 0 ? (
@@ -1813,8 +2103,30 @@ export default function ConceptMapView() {
                   </div>
                 </div>
               ) : (
-
-              <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                  {/* Sub-tabs inside Info Tab */}
+                  <div className="flex gap-2 mb-4 bg-muted/40 p-1 rounded-lg">
+                    <button
+                      onClick={() => setActiveTab("resumen")}
+                      className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${
+                        activeTab === "resumen"
+                          ? "bg-card text-foreground shadow-sm"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      Resumen
+                    </button>
+                    <button
+                      onClick={() => setActiveTab("notas")}
+                      className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${
+                        activeTab === "notas"
+                          ? "bg-card text-foreground shadow-sm"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      Notas
+                    </button>
+                  </div>
                 {activeTab === "resumen" ? (
                   <>
                     {/* Descripción */}
