@@ -1,8 +1,9 @@
 const express = require('express');
 const db      = require('../db');
 const auth    = require('../middleware/auth');
-const { awardXP, updateStreak } = require('../utils/gamification');
-const { makeShortId }           = require('../utils/shortId');
+const { awardXP, updateStreak }     = require('../utils/gamification');
+const { makeShortId }               = require('../utils/shortId');
+const { checkAchievements }         = require('../achievementChecker');
 
 const router = express.Router();
 
@@ -85,6 +86,7 @@ router.post('/', auth, (req, res) => {
 
   awardXP(req.user.id, 50, 'map_created');
   updateStreak(req.user.id);
+  checkAchievements(req.user.id);
 
   res.status(201).json({ id, public_id, title, is_public, owner_id: req.user.id, group_id: groupId });
 });
@@ -97,6 +99,30 @@ router.get('/:id', auth, resolveMap, (req, res) => {
   if (!hasAccess && map.group_id) {
     const membership = db.get('SELECT id FROM group_members WHERE group_id = ? AND user_id = ?', [map.group_id, req.user.id]);
     if (membership) hasAccess = true;
+  }
+  // Docente puede ver un mapa si un estudiante lo entregó como tarea en su grupo
+  if (!hasAccess) {
+    const teacherAccess = db.get(
+      `SELECT 1 FROM assignment_submissions sub
+       JOIN assignments a ON a.id = sub.assignment_id
+       JOIN group_members gm ON gm.group_id = a.group_id
+         AND gm.user_id = ? AND gm.role IN ('admin','teacher')
+       WHERE sub.map_id = ? AND sub.status = 'submitted'
+       LIMIT 1`,
+      [req.user.id, map.id]
+    );
+    if (teacherAccess) hasAccess = true;
+  }
+  // Miembro de una comunidad puede ver el mapa si fue compartido como post en esa comunidad
+  if (!hasAccess) {
+    const communityAccess = db.get(
+      `SELECT 1 FROM community_posts cp
+       JOIN community_members cm ON cm.community_id = cp.community_id
+       WHERE cp.map_id = ? AND cm.user_id = ? AND cm.is_blocked = 0
+       LIMIT 1`,
+      [map.id, req.user.id]
+    );
+    if (communityAccess) hasAccess = true;
   }
   if (!hasAccess) return res.status(403).json({ message: 'Sin acceso' });
 
@@ -200,6 +226,7 @@ router.post('/:id/like', auth, resolveMap, (req, res) => {
 
   db.run('INSERT INTO map_likes (map_id, user_id) VALUES (?,?)', [id, req.user.id]);
   db.run('UPDATE maps SET like_count = like_count + 1 WHERE id = ?', [id]);
+  checkAchievements(req.map.owner_id);
   res.json({ liked: true, like_count: like_count + 1 });
 });
 
@@ -224,7 +251,33 @@ router.post('/:id/comments', auth, resolveMap, (req, res) => {
   db.run('UPDATE maps SET comment_count = comment_count + 1 WHERE id = ?', [req.map.id]);
 
   awardXP(req.user.id, 5, 'comment_added');
+  checkAchievements(req.user.id);
   res.status(201).json({ message: 'Comentario agregado' });
+});
+
+// ── comentarios por nodo ─────────────────────────────────────────────────────
+
+router.get('/:id/nodes/:nodeId/comments', auth, resolveMap, (req, res) => {
+  const comments = db.all(
+    `SELECT c.id, c.text, c.created_at, u.name as user, u.id as user_id
+     FROM map_comments c JOIN users u ON u.id = c.user_id
+     WHERE c.map_id = ? AND c.node_id = ? ORDER BY c.created_at ASC`,
+    [req.map.id, req.params.nodeId]
+  );
+  res.json(comments);
+});
+
+router.post('/:id/nodes/:nodeId/comments', auth, resolveMap, (req, res) => {
+  const { text } = req.body;
+  if (!text?.trim()) return res.status(400).json({ message: 'Comentario vacío' });
+
+  db.run(
+    'INSERT INTO map_comments (map_id, user_id, node_id, text) VALUES (?,?,?,?)',
+    [req.map.id, req.user.id, req.params.nodeId, text.trim()]
+  );
+  awardXP(req.user.id, 5, 'node_comment_added');
+  checkAchievements(req.user.id);
+  res.status(201).json({ message: 'Comentario agregado al nodo' });
 });
 
 // ── nodos ────────────────────────────────────────────────────────────────────

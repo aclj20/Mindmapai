@@ -1,6 +1,7 @@
 const express = require('express');
 const db = require('../db');
 const auth = require('../middleware/auth');
+const { checkAchievements } = require('../achievementChecker');
 
 const router = express.Router();
 
@@ -45,6 +46,7 @@ router.post('/end', auth, (req, res) => {
     [req.user.id, xpEarned, 'study_session']
   );
 
+  checkAchievements(req.user.id);
   res.json({ duration_minutes: duration_final, xp_earned: xpEarned });
 });
 

@@ -91,7 +91,7 @@ router.get('/:id', auth, resolveGroup, (req, res) => {
   );
 
   const members = db.all(
-    `SELECT u.id, u.name, u.level, u.streak, gm.role,
+    `SELECT u.id, u.name, u.avatar_url, u.level, u.streak, gm.role,
             COALESCE((
               SELECT SUM(max_score)
               FROM (
@@ -130,49 +130,116 @@ router.get('/:id', auth, resolveGroup, (req, res) => {
 // GET /api/groups/:id/assignments
 router.get('/:id/assignments', auth, resolveGroup, (req, res) => {
   const gid = req.groupId;
-
-  const membership = db.get(
-    'SELECT id FROM group_members WHERE group_id = ? AND user_id = ?',
-    [gid, req.user.id]
-  );
+  const membership = db.get('SELECT role FROM group_members WHERE group_id = ? AND user_id = ?', [gid, req.user.id]);
   if (!membership) return res.status(403).json({ message: 'Sin acceso' });
 
+  const isTeacher = ['admin', 'teacher'].includes(membership.role);
+
   const assignments = db.all(
-    `SELECT a.id, a.title, a.due_date, a.created_at,
+    `SELECT a.id, a.title, a.description, a.due_date, a.created_at,
             COUNT(DISTINCT s.student_id) as submitted,
-            COUNT(DISTINCT gm.user_id) - 1 as total
+            (SELECT COUNT(*) FROM group_members
+             WHERE group_id = a.group_id AND role NOT IN ('admin','teacher')) as total
      FROM assignments a
-     JOIN group_members gm ON gm.group_id = a.group_id AND gm.user_id != a.created_by
      LEFT JOIN assignment_submissions s ON s.assignment_id = a.id AND s.status = 'submitted'
      WHERE a.group_id = ?
      GROUP BY a.id
-     ORDER BY a.due_date ASC`,
+     ORDER BY a.due_date ASC, a.created_at DESC`,
     [gid]
   );
 
-  res.json(assignments);
+  // Para estudiantes, agregar si ya entregaron y con qué mapa
+  const result = assignments.map(a => {
+    if (isTeacher) return { ...a, is_teacher: true };
+    const sub = db.get(
+      `SELECT s.status, s.submitted_at, m.title as map_title, m.public_id as map_public_id
+       FROM assignment_submissions s
+       LEFT JOIN maps m ON m.id = s.map_id
+       WHERE s.assignment_id = ? AND s.student_id = ?`,
+      [a.id, req.user.id]
+    );
+    return { ...a, my_submission: sub ?? null };
+  });
+
+  res.json(result);
 });
 
-// POST /api/groups/:id/assignments — crear tarea (solo admin)
+// POST /api/groups/:id/assignments — crear tarea (solo docente)
 router.post('/:id/assignments', auth, resolveGroup, (req, res) => {
   const gid = req.groupId;
-
-  const membership = db.get(
-    'SELECT role FROM group_members WHERE group_id = ? AND user_id = ?',
-    [gid, req.user.id]
-  );
+  const membership = db.get('SELECT role FROM group_members WHERE group_id = ? AND user_id = ?', [gid, req.user.id]);
   if (!membership || !['admin', 'teacher'].includes(membership.role))
-    return res.status(403).json({ message: 'Solo el administrador del grupo puede crear tareas' });
+    return res.status(403).json({ message: 'Solo el docente puede crear tareas' });
 
-  const { title, due_date } = req.body;
+  const { title, description, due_date } = req.body;
   if (!title) return res.status(400).json({ message: 'Título requerido' });
 
   const { lastInsertRowid: id } = db.run(
-    'INSERT INTO assignments (group_id, created_by, title, due_date) VALUES (?,?,?,?)',
-    [gid, req.user.id, title, due_date || null]
+    'INSERT INTO assignments (group_id, created_by, title, description, due_date) VALUES (?,?,?,?,?)',
+    [gid, req.user.id, title, description || null, due_date || null]
   );
 
-  res.status(201).json({ id, title, due_date });
+  res.status(201).json({ id, title, description, due_date });
+});
+
+// PUT /api/groups/:id/assignments/:assignmentId — editar tarea (solo docente)
+router.put('/:id/assignments/:assignmentId', auth, resolveGroup, (req, res) => {
+  const gid = req.groupId;
+  const membership = db.get('SELECT role FROM group_members WHERE group_id = ? AND user_id = ?', [gid, req.user.id]);
+  if (!membership || !['admin', 'teacher'].includes(membership.role))
+    return res.status(403).json({ message: 'Sin permiso' });
+
+  const a = db.get('SELECT id FROM assignments WHERE id = ? AND group_id = ?', [req.params.assignmentId, gid]);
+  if (!a) return res.status(404).json({ message: 'Tarea no encontrada' });
+
+  const { title, description, due_date } = req.body;
+  if (!title) return res.status(400).json({ message: 'Título requerido' });
+
+  db.run(
+    'UPDATE assignments SET title = ?, description = ?, due_date = ? WHERE id = ?',
+    [title, description || null, due_date || null, req.params.assignmentId]
+  );
+  res.json({ id: a.id, title, description: description || null, due_date: due_date || null });
+});
+
+// DELETE /api/groups/:id/assignments/:assignmentId — eliminar tarea (solo docente)
+router.delete('/:id/assignments/:assignmentId', auth, resolveGroup, (req, res) => {
+  const gid = req.groupId;
+  const membership = db.get('SELECT role FROM group_members WHERE group_id = ? AND user_id = ?', [gid, req.user.id]);
+  if (!membership || !['admin', 'teacher'].includes(membership.role))
+    return res.status(403).json({ message: 'Sin permiso' });
+
+  const a = db.get('SELECT id FROM assignments WHERE id = ? AND group_id = ?', [req.params.assignmentId, gid]);
+  if (!a) return res.status(404).json({ message: 'Tarea no encontrada' });
+
+  db.run('DELETE FROM assignment_submissions WHERE assignment_id = ?', [req.params.assignmentId]);
+  db.run('DELETE FROM assignments WHERE id = ?', [req.params.assignmentId]);
+  res.json({ message: 'Tarea eliminada' });
+});
+
+// GET /api/groups/assignments/:assignmentId/submissions — todos los estudiantes con su estado
+router.get('/assignments/:assignmentId/submissions', auth, (req, res) => {
+  const assignment = db.get('SELECT id, group_id FROM assignments WHERE id = ?', [req.params.assignmentId]);
+  if (!assignment) return res.status(404).json({ message: 'Tarea no encontrada' });
+
+  const membership = db.get('SELECT role FROM group_members WHERE group_id = ? AND user_id = ?', [assignment.group_id, req.user.id]);
+  if (!membership || !['admin', 'teacher'].includes(membership.role))
+    return res.status(403).json({ message: 'Sin permiso' });
+
+  // Todos los estudiantes del grupo + su entrega (si existe)
+  const submissions = db.all(
+    `SELECT u.id as student_id, u.name as student_name,
+            s.status, s.submitted_at,
+            m.title as map_title, m.public_id as map_public_id
+     FROM group_members gm
+     JOIN users u ON u.id = gm.user_id
+     LEFT JOIN assignment_submissions s ON s.assignment_id = ? AND s.student_id = u.id
+     LEFT JOIN maps m ON m.id = s.map_id
+     WHERE gm.group_id = ? AND gm.role NOT IN ('admin','teacher')
+     ORDER BY s.submitted_at DESC NULLS LAST, u.name ASC`,
+    [req.params.assignmentId, assignment.group_id]
+  );
+  res.json(submissions);
 });
 
 // POST /api/groups/assignments/:assignmentId/submit
@@ -190,6 +257,98 @@ router.post('/assignments/:assignmentId/submit', auth, (req, res) => {
   );
 
   res.json({ message: 'Tarea entregada' });
+});
+
+// ── TABLÓN DE ANUNCIOS ────────────────────────────────────────────────────────
+
+// GET /api/groups/:id/announcements
+router.get('/:id/announcements', auth, resolveGroup, (req, res) => {
+  const gid = req.groupId;
+  const membership = db.get('SELECT role FROM group_members WHERE group_id = ? AND user_id = ?', [gid, req.user.id]);
+  if (!membership) return res.status(403).json({ message: 'Sin acceso' });
+
+  const announcements = db.all(
+    `SELECT a.id, a.content, a.created_at, u.id as author_id, u.name as author_name, u.avatar_url as author_avatar
+     FROM group_announcements a
+     JOIN users u ON u.id = a.author_id
+     WHERE a.group_id = ?
+     ORDER BY a.created_at DESC`,
+    [gid]
+  );
+
+  const result = announcements.map(a => ({
+    ...a,
+    attachments: db.all(
+      'SELECT id, file_url, file_name, file_type, file_size FROM announcement_attachments WHERE announcement_id = ?',
+      [a.id]
+    ),
+    maps: db.all(
+      'SELECT map_id, map_title, map_public_id FROM announcement_maps WHERE announcement_id = ?',
+      [a.id]
+    ),
+  }));
+
+  res.json(result);
+});
+
+// POST /api/groups/:id/announcements
+router.post('/:id/announcements', auth, resolveGroup, (req, res) => {
+  const gid = req.groupId;
+  const membership = db.get('SELECT role FROM group_members WHERE group_id = ? AND user_id = ?', [gid, req.user.id]);
+  if (!membership || !['admin', 'teacher'].includes(membership.role))
+    return res.status(403).json({ message: 'Solo el docente puede publicar anuncios' });
+
+  const { content, attachments = [], maps = [] } = req.body;
+  if (!content?.trim()) return res.status(400).json({ message: 'El contenido es requerido' });
+
+  const { lastInsertRowid: announcementId } = db.run(
+    'INSERT INTO group_announcements (group_id, author_id, content) VALUES (?,?,?)',
+    [gid, req.user.id, content.trim()]
+  );
+
+  const savedAttachments = [];
+  for (const att of attachments) {
+    db.run(
+      'INSERT INTO announcement_attachments (announcement_id, file_url, file_name, file_type, file_size) VALUES (?,?,?,?,?)',
+      [announcementId, att.file_url, att.file_name, att.file_type || null, att.file_size || null]
+    );
+    savedAttachments.push(att);
+  }
+
+  const savedMaps = [];
+  for (const m of maps) {
+    const mapRow = db.get('SELECT title, public_id FROM maps WHERE id = ?', [m.map_id]);
+    if (mapRow) {
+      db.run(
+        'INSERT INTO announcement_maps (announcement_id, map_id, map_title, map_public_id) VALUES (?,?,?,?)',
+        [announcementId, m.map_id, mapRow.title, mapRow.public_id]
+      );
+      savedMaps.push({ map_id: m.map_id, map_title: mapRow.title, map_public_id: mapRow.public_id });
+    }
+  }
+
+  const author = db.get('SELECT name, avatar_url FROM users WHERE id = ?', [req.user.id]);
+  res.status(201).json({
+    id: announcementId, content: content.trim(),
+    attachments: savedAttachments, maps: savedMaps,
+    created_at: new Date().toISOString(),
+    author_id: req.user.id, author_name: author.name, author_avatar: author.avatar_url,
+  });
+});
+
+// DELETE /api/groups/:id/announcements/:announcementId
+router.delete('/:id/announcements/:announcementId', auth, resolveGroup, (req, res) => {
+  const gid = req.groupId;
+  const membership = db.get('SELECT role FROM group_members WHERE group_id = ? AND user_id = ?', [gid, req.user.id]);
+  if (!membership || !['admin', 'teacher'].includes(membership.role))
+    return res.status(403).json({ message: 'Sin permiso' });
+
+  const a = db.get('SELECT id FROM group_announcements WHERE id = ? AND group_id = ?', [req.params.announcementId, gid]);
+  if (!a) return res.status(404).json({ message: 'Anuncio no encontrado' });
+
+  db.run('DELETE FROM announcement_attachments WHERE announcement_id = ?', [req.params.announcementId]);
+  db.run('DELETE FROM group_announcements WHERE id = ?', [req.params.announcementId]);
+  res.json({ message: 'Anuncio eliminado' });
 });
 
 module.exports = router;

@@ -11,6 +11,13 @@ import AchievementsPage from "./components/AchievementsPage";
 import SettingsPage from "./components/SettingsPage";
 import CreateMapPage from "./components/CreateMapPage";
 import CommunityPage from "./components/CommunityPage";
+import AdminPanel from "./components/AdminPanel";
+import AdminLogin from "./components/AdminLogin";
+import AdminRoute from "./components/AdminRoute";
+import PublicProfilePage from "./components/PublicProfilePage";
+import CommunitiesPage from "./components/CommunitiesPage";
+import CommunityDetailPage from "./components/CommunityDetailPage";
+import PostDetailPage from "./components/PostDetailPage";
 import PrivateRoute from "./components/PrivateRoute";
 import GuestRoute from "./components/GuestRoute";
 
@@ -88,6 +95,14 @@ export const router = createBrowserRouter([
     ),
   },
   {
+    path: "/profile/:id",
+    element: (
+      <PrivateRoute>
+        <PublicProfilePage />
+      </PrivateRoute>
+    ),
+  },
+  {
     path: "/groups",
     element: (
       <PrivateRoute>
@@ -117,6 +132,30 @@ export const router = createBrowserRouter([
       <PrivateRoute>
         <SettingsPage />
       </PrivateRoute>
+    ),
+  },
+  {
+    path: "/communities",
+    element: <PrivateRoute><CommunitiesPage /></PrivateRoute>,
+  },
+  {
+    path: "/c/:slug",
+    element: <PrivateRoute><CommunityDetailPage /></PrivateRoute>,
+  },
+  {
+    path: "/c/:slug/post/:postId",
+    element: <PrivateRoute><PostDetailPage /></PrivateRoute>,
+  },
+  {
+    path: "/admin/login",
+    element: <AdminLogin />,
+  },
+  {
+    path: "/admin",
+    element: (
+      <AdminRoute>
+        <AdminPanel />
+      </AdminRoute>
     ),
   },
 ]);

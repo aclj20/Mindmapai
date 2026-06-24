@@ -2,6 +2,7 @@ export interface AuthUser {
   id: number;
   name: string;
   email: string;
+  role: "student" | "teacher" | "admin";
 }
 
 export function getAuthUser(): AuthUser | null {

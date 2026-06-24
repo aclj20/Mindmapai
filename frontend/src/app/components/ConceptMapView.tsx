@@ -46,7 +46,12 @@ import {
   HelpCircle,
   Award,
   ChevronRight,
-  GraduationCap
+  GraduationCap,
+  MessageSquare,
+  CheckCircle2,
+  XCircle,
+  Star,
+  BookMarked
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import confetti from "canvas-confetti";
@@ -156,7 +161,14 @@ export default function ConceptMapView() {
   const [quizCompleted, setQuizCompleted] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
 
+  // Estados para comentarios por nodo
+  const [nodeComments, setNodeComments] = useState<{ id: number; user: string; user_id: number; text: string; created_at: string }[]>([]);
+  const [newNodeComment, setNewNodeComment] = useState("");
+  const [nodeCommentsLoading, setNodeCommentsLoading] = useState(false);
+  const [nodeSidebarTab, setNodeSidebarTab] = useState<"info" | "comments">("info");
+
   const saveMapState = useCallback((currentNodes: Node[]) => {
+    if (userRole !== "owner" && userRole !== "editor") return Promise.resolve();
     const postConnections: { from_node_id: number; to_node_id: number }[] = [];
     currentNodes.forEach((n) => {
       (n.connections || []).forEach((cid) => {
@@ -569,6 +581,41 @@ export default function ConceptMapView() {
   useEffect(() => {
     if (showComments) fetchComments();
   }, [showComments, fetchComments]);
+
+  const fetchNodeComments = useCallback((nodeId: string) => {
+    if (!id || !nodeId) return;
+    setNodeCommentsLoading(true);
+    fetch(`${API_URL}/maps/${id}/nodes/${nodeId}/comments`, {
+      headers: { Authorization: `Bearer ${getToken()}` },
+    })
+      .then(handleFetchResponse)
+      .then(setNodeComments)
+      .catch(() => {})
+      .finally(() => setNodeCommentsLoading(false));
+  }, [id, handleFetchResponse]);
+
+  useEffect(() => {
+    if (selectedNode && nodeSidebarTab === "comments") {
+      fetchNodeComments(selectedNode);
+    }
+  }, [selectedNode, nodeSidebarTab, fetchNodeComments]);
+
+  const handleAddNodeComment = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newNodeComment.trim() || !selectedNode) return;
+    fetch(`${API_URL}/maps/${id}/nodes/${selectedNode}/comments`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` },
+      body: JSON.stringify({ text: newNodeComment.trim() }),
+    })
+      .then(handleFetchResponse)
+      .then(() => {
+        setNewNodeComment("");
+        fetchNodeComments(selectedNode);
+        toast.success("Comentario agregado");
+      })
+      .catch((err) => toast.error(err.message || "Error al agregar comentario"));
+  };
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).tagName === "svg") {
@@ -1665,7 +1712,7 @@ export default function ConceptMapView() {
               transition={{ type: "spring", bounce: 0, duration: 0.4 }}
               className="absolute top-0 right-0 h-full w-[360px] bg-card border-l border-border shadow-2xl z-40 flex flex-col"
             >
-              <div className="flex items-center justify-between p-6">
+              <div className="flex items-center justify-between p-6 pb-0">
                  <div className="flex items-center gap-3">
                     <div>
                        <h2 className="text-lg font-bold text-foreground leading-tight">{selectedNodeData.label}</h2>
@@ -1679,28 +1726,93 @@ export default function ConceptMapView() {
                  </button>
               </div>
 
-              <div className="px-6 pb-2">
+              <div className="px-4 pt-3 pb-0">
                  <div className="flex border-b border-border">
-                    <button 
-                      onClick={() => setActiveTab("resumen")}
-                      className={`px-4 py-2 text-xs font-bold transition-all relative ${
-                        activeTab === "resumen" ? "text-primary" : "text-muted-foreground"
+                    <button
+                      onClick={() => setNodeSidebarTab("info")}
+                      className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-bold transition-all relative ${
+                        nodeSidebarTab === "info" ? "text-primary" : "text-muted-foreground hover:text-foreground"
                       }`}
                     >
-                       Resumen
-                       {activeTab === "resumen" && <motion.div layoutId="tab" className="absolute bottom-0 left-0 w-full h-0.5 bg-primary" />}
+                       <BookMarked className="w-3.5 h-3.5" />
+                       Información
+                       {nodeSidebarTab === "info" && <motion.div layoutId="nodeSidebarTab" className="absolute bottom-0 left-0 w-full h-0.5 bg-primary" />}
                     </button>
-                    {/* <button 
-                      onClick={() => setActiveTab("notas")}
-                      className={`px-4 py-2 text-xs font-bold transition-all relative ${
-                        activeTab === "notas" ? "text-primary" : "text-muted-foreground"
+                    <button
+                      onClick={() => { setNodeSidebarTab("comments"); fetchNodeComments(selectedNode!); }}
+                      className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-bold transition-all relative ${
+                        nodeSidebarTab === "comments" ? "text-primary" : "text-muted-foreground hover:text-foreground"
                       }`}
                     >
-                       Notas
-                       {activeTab === "notas" && <motion.div layoutId="tab" className="absolute bottom-0 left-0 w-full h-0.5 bg-primary" />}
-                    </button> */}
+                       <MessageSquare className="w-3.5 h-3.5" />
+                       Comentarios
+                       {nodeComments.length > 0 && nodeSidebarTab !== "comments" && (
+                         <span className="ml-1 px-1.5 py-0.5 text-[9px] font-extrabold bg-primary text-primary-foreground rounded-full">
+                           {nodeComments.length}
+                         </span>
+                       )}
+                       {nodeSidebarTab === "comments" && <motion.div layoutId="nodeSidebarTab" className="absolute bottom-0 left-0 w-full h-0.5 bg-primary" />}
+                    </button>
                  </div>
               </div>
+
+              {nodeSidebarTab === "comments" ? (
+                <div className="flex flex-col flex-1 overflow-hidden">
+                  <div className="flex-1 overflow-y-auto p-5 space-y-4">
+                    {nodeCommentsLoading ? (
+                      <div className="text-center py-8 text-xs text-muted-foreground font-semibold">Cargando comentarios...</div>
+                    ) : nodeComments.length === 0 ? (
+                      <div className="text-center py-10 space-y-2">
+                        <MessageSquare className="w-8 h-8 text-muted-foreground/30 mx-auto" />
+                        <p className="text-xs text-muted-foreground font-semibold">Sé el primero en comentar sobre este concepto</p>
+                      </div>
+                    ) : (
+                      nodeComments.map((c) => {
+                        const initials = c.user.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase();
+                        const date = new Date(c.created_at + 'Z');
+                        const diff = Date.now() - date.getTime();
+                        const mins = Math.floor(diff / 60000);
+                        const hours = Math.floor(diff / 3600000);
+                        const timeAgo = mins < 60 ? `${mins}m` : hours < 24 ? `${hours}h` : `${Math.floor(hours / 24)}d`;
+                        return (
+                          <div key={c.id} className="flex gap-3">
+                            <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-[10px] font-extrabold text-primary-foreground shrink-0 mt-0.5">
+                              {initials}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-baseline gap-2 mb-1">
+                                <span className="text-xs font-bold text-foreground">{c.user}</span>
+                                <span className="text-[10px] text-muted-foreground font-medium">{timeAgo}</span>
+                              </div>
+                              <p className="text-xs text-foreground leading-relaxed bg-muted rounded-xl px-3 py-2 border border-border">
+                                {c.text}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                  <div className="p-4 border-t border-border bg-muted/40">
+                    <form onSubmit={handleAddNodeComment} className="flex gap-2">
+                      <input
+                        type="text"
+                        value={newNodeComment}
+                        onChange={(e) => setNewNodeComment(e.target.value)}
+                        placeholder="Comentar sobre este concepto..."
+                        className="flex-1 px-3 py-2 rounded-xl bg-card border border-border text-xs focus:outline-none focus:ring-2 focus:ring-primary/20 font-medium"
+                      />
+                      <button
+                        type="submit"
+                        disabled={!newNodeComment.trim()}
+                        className="p-2 rounded-xl bg-primary text-primary-foreground hover:bg-primary-hover disabled:opacity-40 transition-colors shrink-0"
+                      >
+                        <Send className="w-4 h-4" />
+                      </button>
+                    </form>
+                  </div>
+                </div>
+              ) : (
 
               <div className="flex-1 overflow-y-auto p-6 space-y-6">
                 {activeTab === "resumen" ? (
@@ -1898,18 +2010,7 @@ export default function ConceptMapView() {
                   </div>
                 )}
               </div>
-
-              {/* <div className="p-6 border-t border-border flex gap-3">
-                 <button className="flex-1 py-3 rounded-xl bg-primary text-primary-foreground font-bold text-xs shadow-lg shadow-primary/20">
-                    Exportar concepto
-                 </button>
-                 <button className="p-3 rounded-xl border border-border text-muted-foreground hover:bg-muted">
-                    <Share2 className="w-4 h-4" />
-                 </button>
-                 <button className="p-3 rounded-xl border border-border text-destructive hover:bg-destructive/10">
-                    <Trash2 className="w-4 h-4" />
-                 </button>
-              </div> */}
+              )}
             </motion.div>
           )}
         </AnimatePresence>
@@ -2078,14 +2179,16 @@ export default function ConceptMapView() {
           )}
         </AnimatePresence>
 
-      {/* Quiz Modal */}
+      {/* Quiz Modal — Mejorado */}
       <Dialog.Root open={showQuizModal} onOpenChange={setShowQuizModal}>
         <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 transition-opacity" />
-          <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-card rounded-2xl p-6 w-full max-w-md shadow-2xl z-50 border border-border max-h-[85vh] overflow-y-auto font-sans">
-            <div className="flex justify-between items-center mb-6 border-b border-border pb-3">
+          <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50" />
+          <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-card rounded-2xl w-full max-w-lg shadow-2xl z-50 border border-border max-h-[90vh] overflow-y-auto font-sans">
+            <div className="flex justify-between items-center p-6 border-b border-border">
               <Dialog.Title className="text-base font-bold text-foreground tracking-tight flex items-center gap-2">
-                <Trophy className="w-4 h-4 text-emerald-600 animate-bounce" />
+                <div className="w-8 h-8 rounded-xl bg-emerald-100 flex items-center justify-center">
+                  <Trophy className="w-4 h-4 text-emerald-600" />
+                </div>
                 Cuestionario de Aprendizaje
               </Dialog.Title>
               <Dialog.Close className="text-muted-foreground hover:text-foreground transition-colors p-1.5 rounded-lg hover:bg-muted">
@@ -2093,120 +2196,249 @@ export default function ConceptMapView() {
               </Dialog.Close>
             </div>
 
+            <div className="p-6">
             {quizLoading && (
-              <div className="text-center py-10 space-y-4">
-                <div className="w-12 h-12 rounded-full bg-primary-subtle border border-primary/20 flex items-center justify-center mx-auto text-primary text-lg font-extrabold animate-spin">
-                  🧠
+              <div className="text-center py-12 space-y-4">
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
+                  className="w-14 h-14 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center mx-auto shadow-lg shadow-primary/20"
+                >
+                  <span className="text-xl">🧠</span>
+                </motion.div>
+                <div>
+                  <p className="text-sm font-bold text-foreground">Generando preguntas...</p>
+                  <p className="text-xs text-muted-foreground mt-1">Analizando tu mapa conceptual con IA</p>
                 </div>
-                <p className="text-xs font-semibold text-muted-foreground">Generando preguntas didácticas sobre este mapa...</p>
               </div>
             )}
 
             {quizStarted && !quizCompleted && quizQuestions.length > 0 && (
-              <div className="space-y-6">
-                <div className="flex justify-between items-center text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-                  <span>Pregunta {currentQuestionIndex + 1} de {quizQuestions.length}</span>
-                  <span>Puntaje: {quizScore} pts</span>
+              <div className="space-y-5">
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+                      Pregunta {currentQuestionIndex + 1} de {quizQuestions.length}
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-400" />
+                      <span className="text-xs font-extrabold text-foreground">{quizScore} pts</span>
+                    </div>
+                  </div>
+                  <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
+                    <motion.div
+                      className="h-full bg-gradient-to-r from-primary to-emerald-500 rounded-full"
+                      initial={{ width: `${(currentQuestionIndex / quizQuestions.length) * 100}%` }}
+                      animate={{ width: `${((currentQuestionIndex + 1) / quizQuestions.length) * 100}%` }}
+                      transition={{ duration: 0.4, ease: "easeOut" }}
+                    />
+                  </div>
+                  <div className="flex gap-1">
+                    {quizQuestions.map((_, i) => (
+                      <div key={i} className={`flex-1 h-1 rounded-full transition-all ${
+                        i < currentQuestionIndex ? "bg-emerald-500" :
+                        i === currentQuestionIndex ? "bg-primary" : "bg-muted"
+                      }`} />
+                    ))}
+                  </div>
                 </div>
 
-                <div className="p-4 bg-muted/50 rounded-xl border border-border">
+                <motion.div
+                  key={currentQuestionIndex}
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  className="p-4 bg-muted/60 rounded-xl border border-border"
+                >
+                  <p className="text-[10px] font-bold text-primary uppercase tracking-widest mb-2">Pregunta</p>
                   <h4 className="font-bold text-sm text-foreground leading-snug">
                     {quizQuestions[currentQuestionIndex].question}
                   </h4>
-                </div>
+                </motion.div>
 
                 <div className="space-y-2.5">
                   {quizQuestions[currentQuestionIndex].options.map((option, idx) => {
                     const isSelected = selectedAnswerIndex === idx;
                     const isCorrectOption = idx === quizQuestions[currentQuestionIndex].answerIndex;
                     const hasAnswered = selectedAnswerIndex !== null;
+                    const optionLabels = ["A", "B", "C", "D"];
 
-                    let buttonClass = "border-border bg-card hover:bg-muted/50";
+                    let cls = "border-border bg-card hover:bg-muted/60 hover:border-primary/30 cursor-pointer";
                     if (hasAnswered) {
-                      if (isCorrectOption) {
-                        buttonClass = "border-emerald-500 bg-emerald-50 text-emerald-700 font-bold shadow-sm shadow-emerald-500/5";
-                      } else if (isSelected) {
-                        buttonClass = "border-red-500 bg-red-50 text-red-700 font-bold shadow-sm shadow-red-500/5";
-                      } else {
-                        buttonClass = "opacity-60 border-border bg-card";
-                      }
-                    } else {
-                      buttonClass = "hover:border-primary/20 border-border bg-card cursor-pointer";
+                      if (isCorrectOption) cls = "border-emerald-500 bg-emerald-50 text-emerald-800";
+                      else if (isSelected) cls = "border-red-400 bg-red-50 text-red-800";
+                      else cls = "opacity-50 border-border bg-card cursor-default";
                     }
 
                     return (
-                      <button
+                      <motion.button
                         key={idx}
                         disabled={hasAnswered}
                         onClick={() => handleSelectOption(idx)}
-                        className={`w-full p-4 rounded-xl border transition-all text-left text-xs font-semibold flex items-center justify-between ${buttonClass}`}
+                        whileHover={!hasAnswered ? { scale: 1.01 } : {}}
+                        whileTap={!hasAnswered ? { scale: 0.99 } : {}}
+                        className={`w-full p-3.5 rounded-xl border-2 transition-all text-left text-xs font-semibold flex items-center gap-3 ${cls}`}
                       >
-                        <span>{option}</span>
-                        {hasAnswered && isCorrectOption && (
-                          <span className="text-emerald-600 font-extrabold text-[10px] uppercase tracking-wide">✓ Correcto</span>
-                        )}
-                        {hasAnswered && isSelected && !isCorrectOption && (
-                          <span className="text-red-600 font-extrabold text-[10px] uppercase tracking-wide">✗ Incorrecto</span>
-                        )}
-                      </button>
+                        <span className={`w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-extrabold shrink-0 transition-all ${
+                          hasAnswered && isCorrectOption ? "bg-emerald-500 text-white" :
+                          hasAnswered && isSelected && !isCorrectOption ? "bg-red-400 text-white" :
+                          "bg-muted text-muted-foreground"
+                        }`}>
+                          {optionLabels[idx]}
+                        </span>
+                        <span className="flex-1">{option}</span>
+                        <AnimatePresence>
+                          {hasAnswered && isCorrectOption && (
+                            <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", bounce: 0.5 }}>
+                              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                            </motion.span>
+                          )}
+                          {hasAnswered && isSelected && !isCorrectOption && (
+                            <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", bounce: 0.5 }}>
+                              <XCircle className="w-4 h-4 text-red-500 shrink-0" />
+                            </motion.span>
+                          )}
+                        </AnimatePresence>
+                      </motion.button>
                     );
                   })}
                 </div>
 
-                {showExplanation && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="p-4 bg-primary-subtle border border-primary/10 rounded-xl space-y-1.5 text-[11px] text-primary leading-relaxed"
-                  >
-                    <span className="font-bold uppercase tracking-wider flex items-center gap-1 text-[10px]">
-                      <GraduationCap className="w-3.5 h-3.5" /> Explicación del Tutor IA:
-                    </span>
-                    <p className="font-medium">{quizQuestions[currentQuestionIndex].explanation}</p>
-                  </motion.div>
-                )}
+                <AnimatePresence>
+                  {showExplanation && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 8, height: 0 }}
+                      animate={{ opacity: 1, y: 0, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className={`rounded-xl border p-4 space-y-2 ${
+                        selectedAnswerIndex === quizQuestions[currentQuestionIndex].answerIndex
+                          ? "bg-emerald-50 border-emerald-200"
+                          : "bg-orange-50 border-orange-200"
+                      }`}
+                    >
+                      <div className={`flex items-center gap-2 text-[11px] font-extrabold uppercase tracking-wider ${
+                        selectedAnswerIndex === quizQuestions[currentQuestionIndex].answerIndex
+                          ? "text-emerald-700" : "text-orange-700"
+                      }`}>
+                        <GraduationCap className="w-3.5 h-3.5" />
+                        {selectedAnswerIndex === quizQuestions[currentQuestionIndex].answerIndex
+                          ? "¡Excelente! Explicación:" : "Respuesta incorrecta — Aprende esto:"}
+                      </div>
+                      <p className={`text-[12px] leading-relaxed font-medium ${
+                        selectedAnswerIndex === quizQuestions[currentQuestionIndex].answerIndex
+                          ? "text-emerald-800" : "text-orange-800"
+                      }`}>
+                        {quizQuestions[currentQuestionIndex].explanation}
+                      </p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
 
                 {selectedAnswerIndex !== null && (
-                  <button
+                  <motion.button
+                    initial={{ opacity: 0, y: 4 }}
+                    animate={{ opacity: 1, y: 0 }}
                     onClick={handleNextQuestion}
-                    className="cursor-pointer w-full py-3 rounded-xl bg-primary hover:bg-primary-hover text-primary-foreground font-semibold transition-colors text-xs shadow-md shadow-primary/10 flex items-center justify-center gap-1.5"
+                    className="cursor-pointer w-full py-3.5 rounded-xl bg-primary hover:bg-primary-hover text-primary-foreground font-bold transition-colors text-xs shadow-lg shadow-primary/20 flex items-center justify-center gap-2"
                   >
-                    {currentQuestionIndex + 1 === quizQuestions.length ? "Ver Resultados" : "Siguiente Pregunta"}
-                  </button>
+                    {currentQuestionIndex + 1 === quizQuestions.length ? (
+                      <><Trophy className="w-4 h-4" /> Ver mis Resultados</>
+                    ) : (
+                      <><ChevronRight className="w-4 h-4" /> Siguiente Pregunta</>
+                    )}
+                  </motion.button>
                 )}
               </div>
             )}
 
             {quizCompleted && (
-              <div className="text-center py-4 space-y-6">
-                <div className="w-14 h-14 rounded-full bg-emerald-100 border border-emerald-200 flex items-center justify-center mx-auto text-emerald-600 font-extrabold text-xl animate-bounce">
-                  🎉
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold tracking-tight text-foreground">¡Cuestionario Completado!</h3>
-                  <p className="text-xs text-muted-foreground mt-1">Has demostrado tus conocimientos sobre el tema.</p>
-                </div>
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="text-center space-y-6 py-2"
+              >
+                {(() => {
+                  const pct = Math.round((correctCount / quizQuestions.length) * 100);
+                  const isPerfect = pct === 100;
+                  const isGood = pct >= 75;
+                  const isOk = pct >= 50;
+                  return (
+                    <>
+                      <motion.div
+                        animate={{ scale: [1, 1.08, 1] }}
+                        transition={{ duration: 0.6, delay: 0.2 }}
+                        className={`w-20 h-20 rounded-full mx-auto flex items-center justify-center text-3xl shadow-lg ${
+                          isPerfect ? "bg-amber-100 shadow-amber-200" :
+                          isGood ? "bg-emerald-100 shadow-emerald-200" :
+                          isOk ? "bg-blue-100 shadow-blue-200" :
+                          "bg-orange-100 shadow-orange-200"
+                        }`}
+                      >
+                        {isPerfect ? "🏆" : isGood ? "🎉" : isOk ? "👍" : "💪"}
+                      </motion.div>
 
-                <div className="grid grid-cols-2 gap-4 max-w-sm mx-auto p-4 rounded-xl bg-muted border border-border">
-                  <div>
-                    <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">Respuestas</span>
-                    <p className="text-base font-extrabold text-foreground">{correctCount} de {quizQuestions.length}</p>
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">Puntaje</span>
-                    <p className="text-base font-extrabold text-primary">{quizScore} pts</p>
-                  </div>
-                </div>
+                      <div>
+                        <h3 className="text-xl font-extrabold tracking-tight text-foreground">
+                          {isPerfect ? "¡Perfecto!" : isGood ? "¡Muy bien!" : isOk ? "¡Buen intento!" : "¡Sigue practicando!"}
+                        </h3>
+                        <p className="text-xs text-muted-foreground mt-1 font-medium">
+                          {isPerfect ? "Dominas completamente este tema." :
+                           isGood ? "Tienes un buen dominio del tema." :
+                           isOk ? "Vas por buen camino, sigue repasando." :
+                           "Revisa el mapa conceptual y vuelve a intentarlo."}
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-3">
+                        <div className="p-4 rounded-xl bg-muted border border-border text-center">
+                          <div className={`text-2xl font-extrabold ${isPerfect ? "text-amber-500" : isGood ? "text-emerald-600" : "text-primary"}`}>
+                            {pct}%
+                          </div>
+                          <div className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider mt-1">Aciertos</div>
+                        </div>
+                        <div className="p-4 rounded-xl bg-muted border border-border text-center">
+                          <div className="text-2xl font-extrabold text-foreground">{correctCount}/{quizQuestions.length}</div>
+                          <div className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider mt-1">Correctas</div>
+                        </div>
+                        <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-center">
+                          <div className="text-2xl font-extrabold text-amber-600">{quizScore}</div>
+                          <div className="text-[10px] text-amber-600 font-bold uppercase tracking-wider mt-1">Puntos</div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <div className="flex justify-between text-[10px] font-bold text-muted-foreground">
+                          <span>Rendimiento</span>
+                          <span>{pct}%</span>
+                        </div>
+                        <div className="w-full h-3 bg-muted rounded-full overflow-hidden">
+                          <motion.div
+                            className={`h-full rounded-full ${
+                              isPerfect ? "bg-amber-400" : isGood ? "bg-emerald-500" : isOk ? "bg-primary" : "bg-orange-400"
+                            }`}
+                            initial={{ width: 0 }}
+                            animate={{ width: `${pct}%` }}
+                            transition={{ duration: 0.8, delay: 0.3, ease: "easeOut" }}
+                          />
+                        </div>
+                      </div>
+                    </>
+                  );
+                })()}
 
                 <button
                   onClick={handleSubmitQuiz}
                   disabled={actionLoading}
-                  className="cursor-pointer w-full py-3 rounded-xl bg-primary hover:bg-primary-hover text-primary-foreground font-semibold transition-colors disabled:opacity-50 text-xs shadow-md shadow-primary/15"
+                  className="cursor-pointer w-full py-3.5 rounded-xl bg-primary hover:bg-primary-hover text-primary-foreground font-bold transition-colors disabled:opacity-50 text-sm shadow-lg shadow-primary/20 flex items-center justify-center gap-2"
                 >
-                  {actionLoading ? "Guardando..." : "Guardar y Finalizar"}
+                  {actionLoading ? (
+                    <><div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> Guardando resultados...</>
+                  ) : (
+                    <><Award className="w-4 h-4" /> Guardar y obtener XP</>
+                  )}
                 </button>
-              </div>
+              </motion.div>
             )}
+            </div>
           </Dialog.Content>
         </Dialog.Portal>
       </Dialog.Root>

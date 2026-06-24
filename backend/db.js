@@ -156,8 +156,33 @@ function createSchema() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       map_id INTEGER NOT NULL REFERENCES maps(id) ON DELETE CASCADE,
       user_id INTEGER NOT NULL REFERENCES users(id),
+      node_id INTEGER REFERENCES map_nodes(id) ON DELETE CASCADE,
       text TEXT NOT NULL,
       created_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS weekly_challenges (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT NOT NULL,
+      description TEXT,
+      challenge_type TEXT NOT NULL,
+      target_value INTEGER NOT NULL,
+      xp_reward INTEGER DEFAULT 100,
+      week_start TEXT NOT NULL,
+      week_end TEXT NOT NULL,
+      created_by INTEGER REFERENCES users(id),
+      is_active INTEGER DEFAULT 1,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS user_challenge_progress (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL REFERENCES users(id),
+      challenge_id INTEGER NOT NULL REFERENCES weekly_challenges(id) ON DELETE CASCADE,
+      progress INTEGER DEFAULT 0,
+      completed INTEGER DEFAULT 0,
+      completed_at TEXT,
+      UNIQUE(user_id, challenge_id)
     );
 
     CREATE TABLE IF NOT EXISTS node_notes (
@@ -325,6 +350,102 @@ function createSchema() {
     );
     _db.run('UPDATE maps SET public_id = ? WHERE id = ?', [pid, mapId]);
   }
+
+  // Migración: agregar node_id a map_comments si no existe
+  try { _db.run('ALTER TABLE map_comments ADD COLUMN node_id INTEGER'); } catch (_) {}
+
+  // Migración: agregar has_seen_tutorial a users si no existe
+  try { _db.run('ALTER TABLE users ADD COLUMN has_seen_tutorial INTEGER DEFAULT 0'); } catch (_) {}
+  // Migración: agregar avatar_url y bio a users si no existen
+  try { _db.run('ALTER TABLE users ADD COLUMN avatar_url TEXT'); } catch (_) {}
+  try { _db.run('ALTER TABLE users ADD COLUMN bio TEXT'); } catch (_) {}
+  // Migración: agregar description a assignments si no existe
+  try { _db.run('ALTER TABLE assignments ADD COLUMN description TEXT'); } catch (_) {}
+
+  // Migración: is_blocked en community_members
+  try { _db.run('ALTER TABLE community_members ADD COLUMN is_blocked INTEGER DEFAULT 0'); } catch (_) {}
+
+  // Migración: columnas de adjunto en community_posts
+  try { _db.run('ALTER TABLE community_posts ADD COLUMN attachment_url TEXT'); } catch (_) {}
+  try { _db.run('ALTER TABLE community_posts ADD COLUMN attachment_name TEXT'); } catch (_) {}
+  try { _db.run('ALTER TABLE community_posts ADD COLUMN attachment_size INTEGER'); } catch (_) {}
+
+  // Tablas de comunidades tipo Reddit
+  _db.run(`CREATE TABLE IF NOT EXISTS communities (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    slug TEXT UNIQUE NOT NULL,
+    description TEXT,
+    icon_url TEXT,
+    banner_url TEXT,
+    creator_id INTEGER NOT NULL REFERENCES users(id),
+    is_private INTEGER DEFAULT 0,
+    member_count INTEGER DEFAULT 1,
+    post_count INTEGER DEFAULT 0,
+    created_at TEXT DEFAULT (datetime('now'))
+  )`);
+  _db.run(`CREATE TABLE IF NOT EXISTS community_members (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    community_id INTEGER NOT NULL REFERENCES communities(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    role TEXT DEFAULT 'member',
+    joined_at TEXT DEFAULT (datetime('now')),
+    UNIQUE(community_id, user_id)
+  )`);
+  _db.run(`CREATE TABLE IF NOT EXISTS community_posts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    community_id INTEGER NOT NULL REFERENCES communities(id) ON DELETE CASCADE,
+    author_id INTEGER NOT NULL REFERENCES users(id),
+    title TEXT NOT NULL,
+    content TEXT,
+    post_type TEXT NOT NULL DEFAULT 'discussion',
+    map_id INTEGER REFERENCES maps(id),
+    link_url TEXT,
+    public_id TEXT UNIQUE,
+    upvote_count INTEGER DEFAULT 0,
+    comment_count INTEGER DEFAULT 0,
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now'))
+  )`);
+  _db.run(`CREATE TABLE IF NOT EXISTS community_post_votes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    post_id INTEGER NOT NULL REFERENCES community_posts(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    created_at TEXT DEFAULT (datetime('now')),
+    UNIQUE(post_id, user_id)
+  )`);
+  _db.run(`CREATE TABLE IF NOT EXISTS community_comments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    post_id INTEGER NOT NULL REFERENCES community_posts(id) ON DELETE CASCADE,
+    author_id INTEGER NOT NULL REFERENCES users(id),
+    content TEXT NOT NULL,
+    parent_id INTEGER REFERENCES community_comments(id),
+    created_at TEXT DEFAULT (datetime('now'))
+  )`);
+
+  // Tablas de anuncios del tablón
+  _db.run(`CREATE TABLE IF NOT EXISTS group_announcements (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    group_id INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+    author_id INTEGER NOT NULL REFERENCES users(id),
+    content TEXT NOT NULL,
+    created_at TEXT DEFAULT (datetime('now'))
+  )`);
+  _db.run(`CREATE TABLE IF NOT EXISTS announcement_attachments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    announcement_id INTEGER NOT NULL REFERENCES group_announcements(id) ON DELETE CASCADE,
+    file_url TEXT NOT NULL,
+    file_name TEXT NOT NULL,
+    file_type TEXT,
+    file_size INTEGER
+  )`);
+  _db.run(`CREATE TABLE IF NOT EXISTS announcement_maps (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    announcement_id INTEGER NOT NULL REFERENCES group_announcements(id) ON DELETE CASCADE,
+    map_id INTEGER NOT NULL REFERENCES maps(id),
+    map_title TEXT NOT NULL,
+    map_public_id TEXT NOT NULL
+  )`);
 
   // Recalcular nivel y XP para todos los usuarios según total_points y las nuevas reglas
   try {

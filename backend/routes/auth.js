@@ -8,7 +8,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'mindmapai_secret_dev_key';
 
 function signToken(user) {
   return jwt.sign(
-    { id: user.id, email: user.email, name: user.name },
+    { id: user.id, email: user.email, name: user.name, role: user.role },
     JWT_SECRET,
     { expiresIn: '7d' }
   );
@@ -45,7 +45,7 @@ router.post('/login', async (req, res) => {
   const valid = await bcrypt.compare(password, row.password_hash);
   if (!valid) return res.status(401).json({ message: 'Credenciales inválidas' });
 
-  const user = { id: row.id, name: row.name, email: row.email };
+  const user = { id: row.id, name: row.name, email: row.email, role: row.role };
   res.json({ token: signToken(user), user });
 });
 

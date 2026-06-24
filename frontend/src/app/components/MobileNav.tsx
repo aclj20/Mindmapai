@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router";
-import { Home, Compass, PlusCircle, Trophy, User } from "lucide-react";
+import { Home, Users, PlusCircle, Trophy, User } from "lucide-react";
 import { motion } from "motion/react";
 
 export default function MobileNav() {
@@ -7,7 +7,7 @@ export default function MobileNav() {
 
   const navItems = [
     { path: "/dashboard", icon: Home, label: "Inicio" },
-    { path: "/community", icon: Compass, label: "Explorar" },
+    { path: "/communities", icon: Users, label: "Comunidades" },
     { path: "/map/create", icon: PlusCircle, label: "Crear", highlight: true },
     { path: "/leaderboard", icon: Trophy, label: "Ranking" },
     { path: "/profile", icon: User, label: "Perfil" },

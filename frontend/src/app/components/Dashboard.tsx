@@ -18,15 +18,28 @@ import {
   BookOpen,
   X,
   User,
+  Edit2,
 } from "lucide-react";
 import { motion } from "motion/react";
 import * as Progress from "@radix-ui/react-progress";
 import * as Dialog from "@radix-ui/react-dialog";
 import MobileNav from "./MobileNav";
+import InteractiveTutorial from "./InteractiveTutorial";
 import { getAuthUser, getAvatarInitials, getToken, logout } from "../hooks/useAuth";
 import { toast } from "sonner";
 
 const API_URL = "http://localhost:3001/api";
+
+const CRITERIA_LABELS: Record<string, string> = {
+  maps_created:    "mapas creados",
+  streak:          "días de racha",
+  study_sessions:  "sesiones de estudio",
+  total_likes:     "me gustas recibidos",
+  comments_given:  "comentarios dados",
+  quiz_score:      "puntos en quiz",
+  leaderboard_rank:"posición en ranking",
+  fast_map:        "mapa en < 5 min",
+};
 
 interface RecentMap {
   id: number;
@@ -87,9 +100,16 @@ export default function Dashboard() {
   const [mapsLoading, setMapsLoading] = useState(true);
   const [userData, setUserData] = useState<UserData | null>(null);
   const [rank, setRank] = useState<number | string>("-");
-  const [unlockedBadges, setUnlockedBadges] = useState<{ name: string; icon: string }[]>([]);
+  const [featuredBadges, setFeaturedBadges] = useState<{
+    name: string; icon: string; unlocked: boolean;
+    criteria_type: string; criteria_value: number;
+    xp_reward: number; progress: number;
+  }[]>([]);
   const [totalNodes, setTotalNodes] = useState(0);
   const [mapsThisWeek, setMapsThisWeek] = useState(0);
+
+  // Tutorial interactivo
+  const [showTutorial, setShowTutorial] = useState(false);
 
   // Estados de grupos
   const [groups, setGroups] = useState<Group[]>([]);
@@ -146,7 +166,14 @@ export default function Dashboard() {
     // Datos del usuario
     fetch(`${API_URL}/users/me`, { headers: h })
       .then(handleFetchResponse)
-      .then(setUserData)
+      .then((data) => {
+        setUserData(data);
+        // Mostrar tutorial si el usuario no lo ha visto (DB o localStorage)
+        const localDone = localStorage.getItem("tutorial_done");
+        if (!localDone && !data.has_seen_tutorial) {
+          setTimeout(() => setShowTutorial(true), 600);
+        }
+      })
       .catch(() => {});
 
     // Rank en leaderboard
@@ -158,12 +185,14 @@ export default function Dashboard() {
       })
       .catch(() => {});
 
-    // Logros desbloqueados
+    // Logros: desbloqueados primero, luego los próximos a alcanzar
     fetch(`${API_URL}/achievements`, { headers: h })
       .then(handleFetchResponse)
-      .then((data: { name: string; icon: string; unlocked: boolean }[]) =>
-        setUnlockedBadges(data.filter((a) => a.unlocked).slice(0, 4))
-      )
+      .then((data: { name: string; icon: string; unlocked: boolean }[]) => {
+        const unlocked = data.filter((a) => a.unlocked);
+        const locked = data.filter((a) => !a.unlocked);
+        setFeaturedBadges([...unlocked, ...locked].slice(0, 4));
+      })
       .catch(() => {});
 
     // Grupos
@@ -171,8 +200,9 @@ export default function Dashboard() {
   }, []);
 
   const user = {
-    name: authUser?.name ?? "Usuario",
+    name: userData?.name ?? authUser?.name ?? "Usuario",
     avatar: authUser ? getAvatarInitials(authUser.name) : "?",
+    avatarUrl: (userData as any)?.avatar_url ?? null,
     level: userData?.level ?? 1,
     xp: userData?.xp ?? 0,
     xpToNext: userData?.xp_to_next ?? 1000,
@@ -258,17 +288,40 @@ export default function Dashboard() {
           </div>
           <div className="hidden md:flex items-center gap-6">
             <Link
+              to="/communities"
+              className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors text-sm font-semibold"
+            >
+              <Users className="w-4 h-4" />
+              <span>Comunidades</span>
+            </Link>
+            <Link
               to="/leaderboard"
               className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors text-sm font-semibold"
             >
               <Trophy className="w-4 h-4" />
               <span>Ranking</span>
             </Link>
+            {(authUser?.role === "admin" || authUser?.role === "teacher") && (
+              <Link
+                to="/admin"
+                className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors text-sm font-semibold"
+              >
+                <Settings className="w-4 h-4" />
+                <span>Admin</span>
+              </Link>
+            )}
             <Link
               to="/settings"
               className="text-muted-foreground hover:text-primary transition-colors"
             >
               <Settings className="w-4 h-4" />
+            </Link>
+            <Link
+              to="/profile"
+              className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors text-sm font-semibold"
+            >
+              <User className="w-4 h-4" />
+              <span>Mi perfil</span>
             </Link>
             <button
               onClick={handleLogout}
@@ -292,9 +345,19 @@ export default function Dashboard() {
             >
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 md:w-16 md:h-16 rounded-full bg-primary-subtle border border-primary/20 flex items-center justify-center text-primary text-xl font-extrabold shadow-sm">
-                    {user.avatar}
-                  </div>
+                  <Link to="/profile" className="relative group shrink-0" title="Editar perfil">
+                    {user.avatarUrl ? (
+                      <img src={user.avatarUrl} alt={user.name}
+                        className="w-14 h-14 md:w-16 md:h-16 rounded-full object-cover border-2 border-primary/20 shadow-sm" />
+                    ) : (
+                      <div className="w-14 h-14 md:w-16 md:h-16 rounded-full bg-primary-subtle border border-primary/20 flex items-center justify-center text-primary text-xl font-extrabold shadow-sm">
+                        {user.avatar}
+                      </div>
+                    )}
+                    <div className="absolute inset-0 rounded-full bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Edit2 className="w-4 h-4 text-white" />
+                    </div>
+                  </Link>
                   <div>
                     <h2 className="text-xl md:text-2xl font-bold text-foreground">
                       ¡Hola, {user.name}!
@@ -501,26 +564,57 @@ export default function Dashboard() {
                 <Award className="w-5 h-5 text-primary animate-bounce" />
                 Logros destacados
               </h3>
-              <div className="grid grid-cols-2 gap-3">
-                {unlockedBadges.length === 0 ? (
-                  <p className="col-span-2 text-xs text-muted-foreground text-center py-4">
-                    Completa mapas y quizzes para desbloquear logros
+              <div className="space-y-2">
+                {featuredBadges.length === 0 ? (
+                  <p className="text-xs text-muted-foreground text-center py-4">
+                    No hay logros configurados aún
                   </p>
                 ) : (
-                  unlockedBadges.map((badge, i) => {
+                  featuredBadges.map((badge, i) => {
                     const Icon = BADGE_ICONS[badge.icon] ?? Award;
+                    const pct = badge.criteria_value > 0
+                      ? Math.min(100, Math.round((badge.progress / badge.criteria_value) * 100))
+                      : 100;
                     return (
                       <motion.div
                         key={i}
-                        initial={{ opacity: 0, scale: 0.8 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ delay: i * 0.1 }}
-                        className="p-3 rounded-xl bg-primary-subtle border border-primary/10 flex flex-col items-center justify-center"
+                        initial={{ opacity: 0, x: -8 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: i * 0.07 }}
+                        className={`flex items-center gap-3 p-3 rounded-xl border ${
+                          badge.unlocked
+                            ? "bg-primary-subtle border-primary/20"
+                            : "bg-muted/20 border-border"
+                        }`}
                       >
-                        <Icon className="w-7 h-7 text-primary mb-1.5" />
-                        <span className="text-[10px] font-bold text-muted-foreground text-center leading-tight">
-                          {badge.name}
-                        </span>
+                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
+                          badge.unlocked ? "bg-primary/15" : "bg-muted/50"
+                        }`}>
+                          <Icon className={`w-5 h-5 ${badge.unlocked ? "text-primary" : "text-muted-foreground"}`} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-1">
+                            <span className="text-xs font-bold text-foreground truncate">{badge.name}</span>
+                            {badge.unlocked
+                              ? <span className="text-[10px] text-emerald-500 font-bold shrink-0">✓ Logrado</span>
+                              : <span className="text-[10px] text-amber-500 font-semibold shrink-0">+{badge.xp_reward} XP</span>
+                            }
+                          </div>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">
+                            {badge.unlocked
+                              ? `${CRITERIA_LABELS[badge.criteria_type] ?? badge.criteria_type}`
+                              : `${badge.progress}/${badge.criteria_value} ${CRITERIA_LABELS[badge.criteria_type] ?? badge.criteria_type}`
+                            }
+                          </p>
+                          {!badge.unlocked && (
+                            <div className="mt-1.5 h-1 rounded-full bg-muted overflow-hidden">
+                              <div
+                                className="h-full rounded-full bg-primary transition-all"
+                                style={{ width: `${pct}%` }}
+                              />
+                            </div>
+                          )}
+                        </div>
                       </motion.div>
                     );
                   })
@@ -654,6 +748,11 @@ export default function Dashboard() {
           </Dialog.Content>
         </Dialog.Portal>
       </Dialog.Root>
+
+      {/* Tutorial interactivo — primera vez */}
+      {showTutorial && (
+        <InteractiveTutorial onComplete={() => setShowTutorial(false)} />
+      )}
     </div>
   );
 }

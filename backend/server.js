@@ -17,6 +17,9 @@ app.use('/api/groups',       require('./routes/groups'));
 app.use('/api/leaderboard',  require('./routes/leaderboard'));
 app.use('/api/achievements', require('./routes/achievements'));
 app.use('/api/sessions',     require('./routes/sessions'));
+app.use('/api/admin',        require('./routes/admin'));
+app.use('/api/upload',       require('./routes/upload'));
+app.use('/api/communities',  require('./routes/communities'));
 
 app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
 
