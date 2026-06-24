@@ -216,21 +216,21 @@ export default function CreateMapPage() {
               <Tabs.List className="grid grid-cols-3 gap-2 p-1 rounded-xl bg-card border border-border shadow-sm">
                 <Tabs.Trigger
                   value="text"
-                  className="px-6 py-2.5 rounded-md text-muted-foreground font-medium transition-all hover:bg-muted data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center justify-center gap-2"
+                  className="hover:cursor-pointer px-6 py-2.5 rounded-md text-muted-foreground font-medium transition-all hover:bg-muted data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center justify-center gap-2"
                 >
                   <FileText className="w-4 h-4" />
                   Texto
                 </Tabs.Trigger>
                 <Tabs.Trigger
                   value="file"
-                  className="px-6 py-2.5 rounded-md text-muted-foreground font-medium transition-all hover:bg-muted data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center justify-center gap-2"
+                  className="hover:cursor-pointer px-6 py-2.5 rounded-md text-muted-foreground font-medium transition-all hover:bg-muted data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center justify-center gap-2"
                 >
                   <Upload className="w-4 h-4" />
                   Archivo
                 </Tabs.Trigger>
                 <Tabs.Trigger
                   value="audio"
-                  className="px-6 py-2.5 rounded-md text-muted-foreground font-medium transition-all hover:bg-muted data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center justify-center gap-2"
+                  className="hover:cursor-pointer px-6 py-2.5 rounded-md text-muted-foreground font-medium transition-all hover:bg-muted data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center justify-center gap-2"
                 >
                   <Mic className="w-4 h-4" />
                   Audio

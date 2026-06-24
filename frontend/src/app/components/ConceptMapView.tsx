@@ -1239,14 +1239,14 @@ export default function ConceptMapView() {
           <div className="flex items-center gap-3">
              <div className="bg-muted px-3 py-1.5 rounded-lg border border-border flex items-center gap-2">
                 <span className="text-sm font-bold">{mapTitle}</span>
-                <MoreHorizontal className="w-4 h-4 text-muted-foreground" />
+                {/* <MoreHorizontal className="w-4 h-4 text-muted-foreground" /> */}
              </div>
-             <div className="flex bg-muted p-1 rounded-lg border border-border">
-                <button className="p-1.5 text-muted-foreground hover:text-foreground"><Undo2 className="w-4 h-4" /></button>
-                <button className="p-1.5 text-muted-foreground hover:text-foreground"><Redo2 className="w-4 h-4" /></button>
+             {/* <div className="flex bg-muted p-1 rounded-lg border border-border">
+                <button className="hover:cursor-pointer p-1.5 text-muted-foreground hover:text-foreground"><Undo2 className="w-4 h-4" /></button>
+                <button className="hover:cursor-pointer p-1.5 text-muted-foreground hover:text-foreground"><Redo2 className="w-4 h-4" /></button>
                 <div className="w-px h-4 bg-border mx-1 mt-1.5" />
-                <button className="p-1.5 text-muted-foreground hover:text-foreground"><LayoutGrid className="w-4 h-4" /></button>
-             </div>
+                <button className="hover:cursor-pointer p-1.5 text-muted-foreground hover:text-foreground"><LayoutGrid className="w-4 h-4" /></button>
+             </div> */}
           </div>
         </div>
 
@@ -1305,16 +1305,16 @@ export default function ConceptMapView() {
                   })
                   .catch(() => toast.error("No se pudo cambiar la visibilidad"));
               }}
-              className={`flex items-center justify-center w-9 h-9 rounded-lg transition-all ${
+              className={`flex hover:cursor-pointer items-center justify-center w-9 h-9 rounded-lg transition-all ${
                 isPublic ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-card"
               }`}
             >
               {isPublic ? <Globe className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
             </button>
-            <button onClick={handleLike} className="flex items-center justify-center w-9 h-9 rounded-lg text-muted-foreground hover:bg-card">
+            <button onClick={handleLike} className="flex hover:cursor-pointer items-center justify-center w-9 h-9 rounded-lg text-muted-foreground hover:bg-card">
               <Heart className={`w-4 h-4 ${liked ? "fill-primary text-primary" : ""}`} />
             </button>
-            <button onClick={() => setShowComments(!showComments)} className="flex items-center justify-center w-9 h-9 rounded-lg text-muted-foreground hover:bg-card relative">
+            <button onClick={() => setShowComments(!showComments)} className="flex hover:cursor-pointer items-center justify-center w-9 h-9 rounded-lg text-muted-foreground hover:bg-card relative">
               <MessageCircle className="w-4 h-4" />
               <span className="absolute top-1 right-1 w-2 h-2 bg-primary rounded-full border border-background"></span>
             </button>
@@ -1323,7 +1323,7 @@ export default function ConceptMapView() {
                 setShowAIChat(!showAIChat);
                 setShowComments(false);
               }}
-              className={`flex items-center justify-center w-9 h-9 rounded-lg transition-all ${
+              className={`flex hover:cursor-pointer items-center justify-center w-9 h-9 rounded-lg transition-all ${
                 showAIChat ? "bg-primary-subtle text-primary" : "text-muted-foreground hover:bg-card"
               }`}
               title="Consultar Tutor IA"
@@ -1332,13 +1332,13 @@ export default function ConceptMapView() {
             </button>
             <button
               onClick={handleStartQuiz}
-              className="flex items-center justify-center w-9 h-9 rounded-lg text-muted-foreground hover:bg-card"
+              className="flex hover:cursor-pointer items-center justify-center w-9 h-9 rounded-lg text-muted-foreground hover:bg-card"
               title={mapGroupId ? (isGroupAdmin ? "Generar Quiz" : "Tomar Quiz") : "Realizar Quiz"}
             >
               <Trophy className="w-4 h-4 text-emerald-600" />
             </button>
             <div className="w-px h-6 bg-border mx-1" />
-            <button onClick={() => setShowShareModal(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground font-bold text-xs hover:bg-primary-hover transition-all shadow-md shadow-primary/20">
+            <button onClick={() => setShowShareModal(true)} className="flex hover:cursor-pointer items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground font-bold text-xs hover:bg-primary-hover transition-all shadow-md shadow-primary/20">
                <Share2 className="w-3.5 h-3.5" /> Compartir
             </button>
           </div>
@@ -1363,7 +1363,7 @@ export default function ConceptMapView() {
           <div className="absolute left-6 top-1/2 -translate-y-1/2 z-20 flex flex-col gap-2 p-2 bg-card border border-border rounded-2xl shadow-xl">
              <button
                onClick={() => setActiveTool("select")}
-               className={`p-3 rounded-xl transition-all ${
+               className={`hover:cursor-pointer p-3 rounded-xl transition-all ${
                  activeTool === "select"
                    ? "bg-primary-subtle text-primary"
                    : "text-muted-foreground hover:bg-muted"
@@ -1374,7 +1374,7 @@ export default function ConceptMapView() {
              </button>
              <button
                onClick={() => setActiveTool("concept")}
-               className={`p-3 rounded-xl transition-all ${
+               className={`hover:cursor-pointer p-3 rounded-xl transition-all ${
                  activeTool === "concept"
                    ? "bg-primary-subtle text-primary"
                    : "text-muted-foreground hover:bg-muted"
@@ -1385,7 +1385,7 @@ export default function ConceptMapView() {
              </button>
              <button
                onClick={() => setShowDetailsModal(true)}
-               className="p-3 rounded-xl text-muted-foreground hover:bg-muted transition-all"
+               className="hover:cursor-pointer p-3 rounded-xl text-muted-foreground hover:bg-muted transition-all"
                title="Detalles del Mapa"
              >
                <StickyNote className="w-5 h-5" />
@@ -1393,7 +1393,7 @@ export default function ConceptMapView() {
              <div className="h-px bg-border mx-2" />
              <button
                onClick={() => setActiveTool("eraser")}
-               className={`p-3 rounded-xl transition-all ${
+               className={`hover:cursor-pointer p-3 rounded-xl transition-all ${
                  activeTool === "eraser"
                    ? "bg-red-100 text-red-600 dark:bg-red-950/30 dark:text-red-400"
                    : "text-muted-foreground hover:bg-muted"
@@ -1404,7 +1404,7 @@ export default function ConceptMapView() {
              </button>
              <DropdownMenu.Root>
                <DropdownMenu.Trigger asChild>
-                 <button className="p-3 rounded-xl text-muted-foreground hover:bg-muted transition-all" title="Más Opciones">
+                 <button className="hover:cursor-pointer p-3 rounded-xl text-muted-foreground hover:bg-muted transition-all" title="Más Opciones">
                    <MoreHorizontal className="w-5 h-5" />
                  </button>
                </DropdownMenu.Trigger>
@@ -1441,7 +1441,7 @@ export default function ConceptMapView() {
                    </DropdownMenu.Item>
                    <DropdownMenu.Item
                      onClick={() => setShowExportModal(true)}
-                     className="flex items-center gap-2 px-3 py-2 text-xs font-bold text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg cursor-pointer outline-none transition-colors"
+                     className="hover:cursor-pointer flex items-center gap-2 px-3 py-2 text-xs font-bold text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg cursor-pointer outline-none transition-colors"
                    >
                      <Download className="w-4 h-4 text-blue-600" />
                      Exportar
@@ -1454,23 +1454,23 @@ export default function ConceptMapView() {
 
         <div className="absolute left-1/2 -translate-x-1/2 bottom-8 z-20 flex items-center gap-4">
            <div className="flex items-center gap-2 p-1.5 bg-card border border-border rounded-xl shadow-lg">
-              <button onClick={() => setZoom(z => Math.max(0.2, z - 0.1))} className="p-2 rounded-lg text-muted-foreground hover:bg-muted"><Minus className="w-4 h-4" /></button>
+              <button onClick={() => setZoom(z => Math.max(0.2, z - 0.1))} className="hover:cursor-pointer p-2 rounded-lg text-muted-foreground hover:bg-muted"><Minus className="w-4 h-4" /></button>
               <span className="text-xs font-bold w-12 text-center text-foreground">{Math.round(zoom * 100)}%</span>
-              <button onClick={() => setZoom(z => Math.min(2, z + 0.1))} className="p-2 rounded-lg text-muted-foreground hover:bg-muted"><Plus className="w-4 h-4" /></button>
+              <button onClick={() => setZoom(z => Math.min(2, z + 0.1))} className="hover:cursor-pointer p-2 rounded-lg text-muted-foreground hover:bg-muted"><Plus className="w-4 h-4" /></button>
            </div>
            <div className="flex items-center gap-2 p-1.5 bg-card border border-border rounded-xl shadow-lg">
-                <button onClick={handleCenterMap} className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold text-muted-foreground hover:bg-muted">
+                <button onClick={handleCenterMap} className="hover:cursor-pointer flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold text-muted-foreground hover:bg-muted">
                  <Maximize className="w-3.5 h-3.5" /> Centrar mapa
               </button>
               <div className="w-px h-4 bg-border" />
-              <button onClick={() => setShowExportModal(true)} className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold text-muted-foreground hover:bg-muted">
+              <button onClick={() => setShowExportModal(true)} className="hover:cursor-pointer flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold text-muted-foreground hover:bg-muted">
                  <Download className="w-3.5 h-3.5" /> Exportar
               </button>
               <div className="w-px h-4 bg-border" />
               <button
                 onClick={isReading ? handleStopReading : handleReadAloud}
                 aria-label={isReading ? "Detener lectura" : "Leer mapa en voz alta"}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+                className={`hover:cursor-pointer flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
                   isReading
                     ? "text-primary bg-primary-subtle hover:bg-primary/20"
                     : "text-muted-foreground hover:bg-muted"
@@ -2452,7 +2452,7 @@ export default function ConceptMapView() {
               <Dialog.Title className="text-xl font-bold text-foreground tracking-tight">
                 Exportar mapa
               </Dialog.Title>
-              <Dialog.Close className="text-muted-foreground hover:text-foreground transition-colors">
+              <Dialog.Close className="hover:cursor-pointer text-muted-foreground hover:text-foreground transition-colors">
                 <X className="w-5 h-5" />
               </Dialog.Close>
             </div>
@@ -2461,7 +2461,7 @@ export default function ConceptMapView() {
                 <button
                   key={format}
                   onClick={() => handleExport(format)}
-                  className="w-full p-4 rounded-lg bg-card border border-border hover:border-primary/20 hover:bg-muted transition-all text-left group"
+                  className="hover:cursor-pointer w-full p-4 rounded-lg bg-card border border-border hover:border-primary/20 hover:bg-muted transition-all text-left group"
                 >
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-md bg-muted flex items-center justify-center group-hover:bg-card border border-border group-hover:border-primary/20 transition-colors">
@@ -2492,7 +2492,7 @@ export default function ConceptMapView() {
               <Dialog.Title className="text-xl font-bold text-foreground tracking-tight">
                 Compartir mapa
               </Dialog.Title>
-              <Dialog.Close className="text-muted-foreground hover:text-foreground transition-colors">
+              <Dialog.Close className="hover:cursor-pointer text-muted-foreground hover:text-foreground transition-colors">
                 <X className="w-5 h-5" />
               </Dialog.Close>
             </div>
@@ -2506,7 +2506,7 @@ export default function ConceptMapView() {
                 >
                   <div className="flex items-center gap-3">
                     <Copy className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
-                    <span className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">Copiar enlace del mapa</span>
+                    <span className="hover:cursor-pointer text-sm font-semibold text-foreground group-hover:text-primary transition-colors">Copiar enlace del mapa</span>
                   </div>
                   <ChevronRight className="w-4 h-4 text-muted-foreground" />
                 </button>
@@ -2537,7 +2537,7 @@ export default function ConceptMapView() {
                     ) : (
                       <button
                         onClick={handleGenerateInviteCode}
-                        className="w-full py-2.5 rounded-xl border border-dashed border-border hover:border-primary/30 text-xs font-bold text-muted-foreground hover:text-primary transition-all flex items-center justify-center gap-1.5"
+                        className="w-full hover:cursor-pointer py-2.5 rounded-xl border border-dashed border-border hover:border-primary/30 text-xs font-bold text-muted-foreground hover:text-primary transition-all flex items-center justify-center gap-1.5"
                       >
                         <Plus className="w-4 h-4" /> Generar código de invitación
                       </button>
@@ -2561,14 +2561,14 @@ export default function ConceptMapView() {
                       <select
                         value={inviteRole}
                         onChange={(e) => setInviteRole(e.target.value as any)}
-                        className="px-2 py-2 rounded-lg bg-muted border border-border text-xs text-foreground focus:outline-none"
+                        className="hover:cursor-pointer px-2 py-2 rounded-lg bg-muted border border-border text-xs text-foreground focus:outline-none"
                       >
                         <option value="editor">Editor</option>
                         <option value="viewer">Lector</option>
                       </select>
                       <button
                         type="submit"
-                        className="px-4 py-2 bg-primary hover:bg-primary-hover text-primary-foreground text-xs font-bold rounded-lg transition-colors"
+                        className="hover:cursor-pointer px-4 py-2 bg-primary hover:bg-primary-hover text-primary-foreground text-xs font-bold rounded-lg transition-colors"
                       >
                         Agregar
                       </button>

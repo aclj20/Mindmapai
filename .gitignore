@@ -2,7 +2,6 @@ node_modules
 
 # Variables de entorno
 backend/.env
-
-
-
+backend/data/mindmapai.db
+frontend/dist
 

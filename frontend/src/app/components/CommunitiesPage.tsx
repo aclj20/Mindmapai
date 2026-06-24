@@ -1,6 +1,6 @@
 import { Link, useNavigate } from "react-router";
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Search, Plus, Users, BookOpen, Lock, Globe, X } from "lucide-react";
+import { Search, Plus, Users, BookOpen, Lock, Globe, X, ArrowLeft } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import MobileNav from "./MobileNav";
 import { getToken, getAvatarInitials, logout } from "../hooks/useAuth";
@@ -90,16 +90,21 @@ export default function CommunitiesPage() {
   return (
     <div className="min-h-screen bg-background pb-24 md:pb-0 font-sans text-foreground">
       <nav className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border shadow-sm">
-        <div className="container mx-auto px-4 py-3 flex items-center justify-between gap-3">
-          <h1 className="text-lg font-extrabold tracking-tight whitespace-nowrap">Comunidades</h1>
-          <form onSubmit={handleSearch} className="flex-1 max-w-sm relative">
+        <div className="container mx-auto px-4 py-3 grid grid-cols-3 items-center gap-3">
+          <div className="flex items-center gap-2 justify-self-start">
+            <button onClick={() => navigate("/dashboard")} className="hover:cursor-pointer w-9 h-9 rounded-full border border-border bg-card flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shrink-0">
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+            <h1 className="text-lg font-extrabold tracking-tight whitespace-nowrap">Comunidades</h1>
+          </div>
+          <form onSubmit={handleSearch} className="max-w-sm w-full relative justify-self-center">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <input value={query} onChange={e => handleQueryChange(e.target.value)}
               placeholder="Buscar comunidades..."
               className="w-full pl-9 pr-4 py-2 rounded-xl bg-muted border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
           </form>
           <button onClick={() => setShowCreate(true)}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition-colors shrink-0">
+            className="hover:cursor-pointer flex items-center gap-1.5 px-3 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition-colors shrink-0 justify-self-end">
             <Plus className="w-4 h-4" /> Crear
           </button>
         </div>
@@ -114,7 +119,7 @@ export default function CommunitiesPage() {
           <div className="text-center py-16 border border-dashed border-border rounded-2xl">
             <Users className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
             <p className="font-bold text-muted-foreground">No hay comunidades aún</p>
-            <button onClick={() => setShowCreate(true)} className="mt-3 text-sm text-primary font-bold hover:underline">Sé el primero en crear una →</button>
+            <button onClick={() => setShowCreate(true)} className="hover:cursor-pointer mt-3 text-sm text-primary font-bold hover:underline">Sé el primero en crear una →</button>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -144,7 +149,7 @@ export default function CommunitiesPage() {
                       </div>
                     </div>
                     <button onClick={() => handleJoin(c)} disabled={joiningId === c.id}
-                      className={`shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold transition-colors ${c.is_member ? 'border border-border text-muted-foreground hover:border-red-300 hover:text-red-500' : 'bg-primary text-primary-foreground hover:bg-primary/90'} disabled:opacity-50`}>
+                      className={`hover:cursor-pointer shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold transition-colors ${c.is_member ? 'border border-border text-muted-foreground hover:border-red-300 hover:text-red-500' : 'bg-primary text-primary-foreground hover:bg-primary/90'} disabled:opacity-50`}>
                       {joiningId === c.id ? '...' : c.is_member ? 'Unido' : 'Unirse'}
                     </button>
                   </div>
@@ -164,7 +169,7 @@ export default function CommunitiesPage() {
               className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
               <div className="flex items-center justify-between px-6 py-4 border-b border-border">
                 <h2 className="text-base font-bold">Crear comunidad</h2>
-                <button onClick={() => setShowCreate(false)} className="p-1.5 rounded-lg text-muted-foreground hover:bg-muted"><X className="w-4 h-4" /></button>
+                <button onClick={() => setShowCreate(false)} className="hover:cursor-pointer p-1.5 rounded-lg text-muted-foreground hover:bg-muted"><X className="w-4 h-4" /></button>
               </div>
               <form onSubmit={handleCreate} className="p-6 space-y-4">
                 <div>
@@ -181,9 +186,9 @@ export default function CommunitiesPage() {
                 </div>
                 <div className="flex gap-3">
                   <button type="button" onClick={() => setShowCreate(false)}
-                    className="flex-1 py-2.5 border border-border rounded-xl text-sm font-bold text-muted-foreground hover:bg-muted">Cancelar</button>
+                    className="hover:cursor-pointer flex-1 py-2.5 border border-border rounded-xl text-sm font-bold text-muted-foreground hover:bg-muted">Cancelar</button>
                   <button type="submit" disabled={creating || !createName.trim()}
-                    className="flex-1 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-bold disabled:opacity-50">
+                    className="hover:cursor-pointer flex-1 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-bold disabled:opacity-50">
                     {creating ? "Creando..." : "Crear"}
                   </button>
                 </div>

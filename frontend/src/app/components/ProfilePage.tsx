@@ -194,7 +194,7 @@ export default function ProfilePage() {
 
               {/* Botón editar */}
               <button onClick={openEdit}
-                className="px-4 py-2 rounded-xl bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20 transition-colors flex items-center gap-2 font-semibold text-sm shrink-0">
+                className="hover:cursor-pointer px-4 py-2 rounded-xl bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20 transition-colors flex items-center gap-2 font-semibold text-sm shrink-0">
                 <Edit2 className="w-4 h-4" />
                 <span className="hidden sm:inline">Editar perfil</span>
               </button>

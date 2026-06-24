@@ -193,7 +193,7 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          <div className="p-6 rounded-xl bg-card border border-border shadow-sm">
+          {/* <div className="p-6 rounded-xl bg-card border border-border shadow-sm">
             <h2 className="text-lg font-bold text-foreground mb-6 flex items-center gap-2 border-b border-border/50 pb-4">
               <Volume2 className="w-5 h-5 text-primary" />
               Audio
@@ -218,9 +218,9 @@ export default function SettingsPage() {
                 </Switch.Root>
               </div>
             </div>
-          </div>
+          </div> */}
 
-          <div className="p-6 rounded-xl bg-primary-subtle border border-border shadow-sm">
+          {/* <div className="p-6 rounded-xl bg-primary-subtle border border-border shadow-sm">
             <h3 className="font-semibold text-foreground mb-2">
               💡 Accesibilidad mejorada
             </h3>
@@ -228,18 +228,18 @@ export default function SettingsPage() {
               Esta plataforma está diseñada siguiendo las pautas WCAG 2.1 para
               garantizar una experiencia accesible para todos los usuarios.
             </p>
-          </div>
+          </div> */}
 
           <div className="flex flex-col sm:flex-row gap-4 pt-4">
             <button
               onClick={handleSave}
-              className="flex-1 py-2.5 px-4 rounded-md bg-primary hover:bg-primary-hover text-primary-foreground font-medium transition-colors shadow-sm"
+              className="hover:cursor-pointer flex-1 py-2.5 px-4 rounded-md bg-primary hover:bg-primary-hover text-primary-foreground font-medium transition-colors shadow-sm"
             >
               Guardar cambios
             </button>
             <button
               onClick={handleReset}
-              className="px-6 py-2.5 rounded-md bg-card border border-border text-foreground hover:bg-muted transition-colors font-medium shadow-sm"
+              className="hover:cursor-pointer px-6 py-2.5 rounded-md bg-card border border-border text-foreground hover:bg-muted transition-colors font-medium shadow-sm"
             >
               Restaurar valores
             </button>
