@@ -1489,19 +1489,19 @@ export default function ConceptMapView() {
 
   return (
     <>
-      <div className="h-screen bg-background flex flex-col font-sans overflow-hidden text-foreground">
-      <nav className="px-6 py-4 bg-background border-b border-border flex items-center justify-between z-20 shadow-sm">
-        <div className="flex items-center gap-6">
+      <div className="h-[100dvh] bg-background flex flex-col font-sans overflow-hidden text-foreground">
+      <nav className="px-3 sm:px-6 py-2 sm:py-4 bg-background border-b border-border flex items-center justify-between z-20 shadow-sm gap-2 min-w-0">
+        <div className="flex items-center gap-2 sm:gap-6 min-w-0">
           <Link
             to={groupPublicId ? `/groups/${groupPublicId}` : "/dashboard"}
-            className="w-10 h-10 rounded-full border border-border bg-card flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            className="w-9 h-9 sm:w-10 sm:h-10 rounded-full border border-border bg-card flex-shrink-0 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
             aria-label={groupPublicId ? "Volver al grupo" : "Volver al dashboard"}
           >
-            <ArrowLeft className="w-5 h-5" />
+            <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
           </Link>
-          <div className="flex items-center gap-3">
-             <div className="bg-muted px-3 py-1.5 rounded-lg border border-border flex items-center gap-2">
-                <span className="text-sm font-bold">{mapTitle}</span>
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+             <div className="bg-muted px-2 sm:px-3 py-1.5 rounded-lg border border-border flex items-center gap-2 min-w-0">
+                <span className="text-sm font-bold truncate max-w-[100px] sm:max-w-[200px] md:max-w-none">{mapTitle}</span>
                 {/* <MoreHorizontal className="w-4 h-4 text-muted-foreground" /> */}
              </div>
              {/* <div className="flex bg-muted p-1 rounded-lg border border-border">
@@ -1513,7 +1513,7 @@ export default function ConceptMapView() {
           </div>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-1 sm:gap-4 flex-shrink-0">
           {(() => {
             const allMembers = [
               { name: ownerName || "Propietario", role: "owner" },
@@ -1523,7 +1523,7 @@ export default function ConceptMapView() {
               })),
             ];
             return (
-              <div className="flex -space-x-2">
+              <div className="hidden md:flex -space-x-2">
                 {allMembers.slice(0, 3).map((m, i) => {
                   const avatarUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(m.name)}&mouth=smile,default&eyes=default,happy,wink`;
                   const isOnline = activeCollaborators.some(ac => ac.name === m.name) || (authUser && authUser.name === m.name);
@@ -1551,7 +1551,7 @@ export default function ConceptMapView() {
             );
           })()}
           
-          <div data-tutorial="top-features" className="flex items-center gap-2 px-1 py-1 bg-muted rounded-xl border border-border">
+          <div data-tutorial="top-features" className="flex items-center gap-1 p-1 bg-muted rounded-xl border border-border">
             <button
               onClick={() => {
                 const next = !isPublic;
@@ -1577,44 +1577,35 @@ export default function ConceptMapView() {
             >
               {isPublic ? <Globe className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
             </button>
-            <button onClick={handleLike} className="flex hover:cursor-pointer items-center justify-center w-9 h-9 rounded-lg text-muted-foreground hover:bg-card">
+            <button onClick={handleLike} className="flex hover:cursor-pointer items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-lg text-muted-foreground hover:bg-card">
               <Heart className={`w-4 h-4 ${liked ? "fill-primary text-primary" : ""}`} />
             </button>
-            <button onClick={() => setShowComments(!showComments)} className="flex hover:cursor-pointer items-center justify-center w-9 h-9 rounded-lg text-muted-foreground hover:bg-card relative">
+            <button onClick={() => setShowComments(!showComments)} className="hidden sm:flex hover:cursor-pointer items-center justify-center w-9 h-9 rounded-lg text-muted-foreground hover:bg-card relative">
               <MessageCircle className="w-4 h-4" />
               <span className="absolute top-1 right-1 w-2 h-2 bg-primary rounded-full border border-background"></span>
             </button>
             <button
-              onClick={() => {
-                setShowAIChat(!showAIChat);
-                setShowComments(false);
-              }}
-              className={`flex hover:cursor-pointer items-center justify-center w-9 h-9 rounded-lg transition-all ${
-                showAIChat ? "bg-primary-subtle text-primary" : "text-muted-foreground hover:bg-card"
-              }`}
+              onClick={() => { setShowAIChat(!showAIChat); setShowComments(false); }}
+              className={`flex hover:cursor-pointer items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-lg transition-all ${showAIChat ? "bg-primary-subtle text-primary" : "text-muted-foreground hover:bg-card"}`}
               title="Consultar Tutor IA"
             >
               <Sparkles className="w-4 h-4 text-purple-600" />
             </button>
             <button
               onClick={handleStartQuiz}
-              className="flex hover:cursor-pointer items-center justify-center w-9 h-9 rounded-lg text-muted-foreground hover:bg-card"
+              className="hidden sm:flex hover:cursor-pointer items-center justify-center w-9 h-9 rounded-lg text-muted-foreground hover:bg-card"
               title={mapGroupId ? (isGroupAdmin ? "Generar Quiz" : "Tomar Quiz") : "Realizar Quiz"}
             >
               <Trophy className="w-4 h-4 text-emerald-600" />
             </button>
-            <div className="w-px h-6 bg-border mx-1" />
-            <button onClick={() => setShowShareModal(true)} className="flex hover:cursor-pointer items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground font-bold text-xs hover:bg-primary-hover transition-all shadow-md shadow-primary/20">
-               <Share2 className="w-3.5 h-3.5" /> Compartir
+            <div className="hidden sm:block w-px h-6 bg-border mx-0.5" />
+            <button onClick={() => setShowShareModal(true)} className="flex hover:cursor-pointer items-center gap-1.5 px-2 sm:px-4 py-2 rounded-lg bg-primary text-primary-foreground font-bold text-xs hover:bg-primary-hover transition-all shadow-md shadow-primary/20">
+               <Share2 className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Compartir</span>
             </button>
           </div>
-          <div className="flex items-center gap-2">
-             {/* <button className="w-10 h-10 flex items-center justify-center text-muted-foreground hover:text-foreground"><Search className="w-5 h-5" /></button> */}
-             {/* <button className="w-10 h-10 flex items-center justify-center text-muted-foreground hover:text-foreground"><Bell className="w-5 h-5" /></button> */}
-              <button className="w-10 h-10 rounded-full bg-muted border border-border overflow-hidden" title={authUser?.name || "Usuario"}>
-                 <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(authUser?.name || "Usuario")}&mouth=smile,default&eyes=default,happy,wink`} alt="User" />
-              </button>
-          </div>
+          <button className="hidden sm:block w-10 h-10 rounded-full bg-muted border border-border overflow-hidden flex-shrink-0" title={authUser?.name || "Usuario"}>
+            <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(authUser?.name || "Usuario")}&mouth=smile,default&eyes=default,happy,wink`} alt="User" />
+          </button>
         </div>
       </nav>
 
@@ -1718,35 +1709,31 @@ export default function ConceptMapView() {
           </div>
         )}
 
-        <div data-tutorial="bottom-controls" className="absolute left-1/2 -translate-x-1/2 bottom-8 z-20 flex items-center gap-4">
-           <div className="flex items-center gap-2 p-1.5 bg-card border border-border rounded-xl shadow-lg">
-              <button onClick={() => setZoom(z => Math.max(0.2, z - 0.1))} className="hover:cursor-pointer p-2 rounded-lg text-muted-foreground hover:bg-muted"><Minus className="w-4 h-4" /></button>
-              <span className="text-xs font-bold w-12 text-center text-foreground">{Math.round(zoom * 100)}%</span>
-              <button onClick={() => setZoom(z => Math.min(2, z + 0.1))} className="hover:cursor-pointer p-2 rounded-lg text-muted-foreground hover:bg-muted"><Plus className="w-4 h-4" /></button>
+        <div data-tutorial="bottom-controls" className="absolute left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 sm:gap-4" style={{ bottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))' }}>
+           <div className="flex items-center gap-1 p-1.5 bg-card border border-border rounded-xl shadow-lg">
+              <button onClick={() => setZoom(z => Math.max(0.2, z - 0.1))} className="hover:cursor-pointer p-2 rounded-lg text-muted-foreground hover:bg-muted" title="Alejar"><Minus className="w-4 h-4" /></button>
+              <span className="text-xs font-bold w-10 sm:w-12 text-center text-foreground">{Math.round(zoom * 100)}%</span>
+              <button onClick={() => setZoom(z => Math.min(2, z + 0.1))} className="hover:cursor-pointer p-2 rounded-lg text-muted-foreground hover:bg-muted" title="Acercar"><Plus className="w-4 h-4" /></button>
            </div>
-           <div className="flex items-center gap-2 p-1.5 bg-card border border-border rounded-xl shadow-lg">
-                <button onClick={handleCenterMap} className="hover:cursor-pointer flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold text-muted-foreground hover:bg-muted">
-                  <Maximize className="w-3.5 h-3.5" /> Centrar mapa
-               </button>
-               <div className="w-px h-4 bg-border" />
-               <button onClick={() => setShowExportModal(true)} className="hover:cursor-pointer flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold text-muted-foreground hover:bg-muted">
-                  <Download className="w-3.5 h-3.5" /> Exportar
-               </button>
-               <div className="w-px h-4 bg-border" />
-               <button
-                 onClick={isReading ? handleStopReading : handleReadAloud}
-                 aria-label={isReading ? "Detener lectura" : "Leer mapa en voz alta"}
-                 className={`hover:cursor-pointer flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
-                   isReading
-                     ? "text-primary bg-primary-subtle hover:bg-primary/20"
-                     : "text-muted-foreground hover:bg-muted"
-                 }`}
-               >
-                 {isReading ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
-                 {isReading ? "Detener" : "Leer mapa"}
-               </button>
-            </div>
-         </div>
+           <div className="flex items-center gap-0.5 sm:gap-2 p-1.5 bg-card border border-border rounded-xl shadow-lg">
+              <button onClick={handleCenterMap} className="hover:cursor-pointer flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg text-xs font-bold text-muted-foreground hover:bg-muted" title="Centrar mapa">
+                <Maximize className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Centrar mapa</span>
+              </button>
+              <div className="w-px h-4 bg-border" />
+              <button onClick={() => setShowExportModal(true)} className="hover:cursor-pointer flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg text-xs font-bold text-muted-foreground hover:bg-muted" title="Exportar">
+                <Download className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Exportar</span>
+              </button>
+              <div className="hidden sm:block w-px h-4 bg-border" />
+              <button
+                onClick={isReading ? handleStopReading : handleReadAloud}
+                aria-label={isReading ? "Detener lectura" : "Leer mapa en voz alta"}
+                className={`hidden sm:flex hover:cursor-pointer items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${isReading ? "text-primary bg-primary-subtle hover:bg-primary/20" : "text-muted-foreground hover:bg-muted"}`}
+              >
+                {isReading ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+                {isReading ? "Detener" : "Leer mapa"}
+              </button>
+           </div>
+        </div>
 
         {/* Contenido accesible para screen readers — visualmente oculto */}
         <section className="sr-only" aria-label={`Mapa conceptual: ${mapTitle}`}>
