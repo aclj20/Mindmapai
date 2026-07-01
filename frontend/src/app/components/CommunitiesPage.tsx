@@ -1,9 +1,12 @@
 import { Link, useNavigate } from "react-router";
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Search, Plus, Users, BookOpen, Lock, Globe, X, ArrowLeft } from "lucide-react";
+import { Search, Plus, Users, BookOpen, X, ArrowLeft } from "lucide-react";
+
 import { motion, AnimatePresence } from "motion/react";
 import MobileNav from "./MobileNav";
-import { getToken, getAvatarInitials, logout } from "../hooks/useAuth";
+import LoginModal from "./LoginModal";
+import { getToken, getAuthUser, logout } from "../hooks/useAuth";
+
 import { toast } from "sonner";
 
 const API_URL = "http://localhost:3001/api";
@@ -15,9 +18,14 @@ interface Community {
   creator_name: string;
 }
 
+type PendingAction =
+  | { type: "join"; community: Community }
+  | { type: "navigate"; to: string }
+  | { type: "create" }
+  | null;
+
 export default function CommunitiesPage() {
   const navigate = useNavigate();
-  const token = getToken();
   const [communities, setCommunities] = useState<Community[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
@@ -26,19 +34,29 @@ export default function CommunitiesPage() {
   const [createDesc, setCreateDesc] = useState("");
   const [creating, setCreating] = useState(false);
   const [joiningId, setJoiningId] = useState<number | null>(null);
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [pendingAction, setPendingAction] = useState<PendingAction>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const isGuest = !getAuthUser();
 
   const fetch_ = useCallback((q = "") => {
     setLoading(true);
-    fetch(`${API_URL}/communities${q ? `?q=${encodeURIComponent(q)}` : ""}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then(r => { if (r.status === 401) { logout(); navigate("/login"); } return r.json(); })
-      .then(setCommunities)
+    const token = getToken();
+    const headers: Record<string, string> = {};
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+
+    fetch(`${API_URL}/communities${q ? `?q=${encodeURIComponent(q)}` : ""}`, { headers })
+      .then(r => {
+        if (r.status === 401 && !isGuest) { logout(); navigate("/login"); }
+        return r.json();
+      })
+      .then(data => { if (Array.isArray(data)) setCommunities(data); })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [token, navigate]);
+  }, [navigate, isGuest]);
 
-  useEffect(() => { fetch_(); }, [fetch_]);
+  useEffect(() => { fetch_(); }, [fetch_, refreshKey]);
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handleQueryChange = (value: string) => {
@@ -47,35 +65,51 @@ export default function CommunitiesPage() {
     debounceRef.current = setTimeout(() => fetch_(value), 300);
   };
 
-  const handleSearch = (e: React.FormEvent) => { e.preventDefault(); fetch_(query); };
+  const handleSearch = (e: React.FormEvent<HTMLFormElement>) => { e.preventDefault(); fetch_(query); };
 
-  const handleCreate = async (e: React.FormEvent) => {
+  function requireAuth(action: PendingAction) {
+    if (isGuest) { setPendingAction(action); setShowLoginModal(true); return false; }
+    return true;
+  }
+
+  function handleLoginSuccess() {
+    setShowLoginModal(false);
+    setRefreshKey(k => k + 1);
+    const action = pendingAction;
+    setPendingAction(null);
+    if (!action) return;
+    if (action.type === "navigate") navigate(action.to);
+    if (action.type === "create") setTimeout(() => setShowCreate(true), 100);
+    if (action.type === "join") setTimeout(() => handleJoin(action.community), 100);
+  }
+
+  const handleCreate = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!createName.trim()) return;
     setCreating(true);
     try {
       const r = await fetch(`${API_URL}/communities`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` },
         body: JSON.stringify({ name: createName, description: createDesc }),
       });
       const data = await r.json();
       if (!r.ok) throw new Error(data.message);
       toast.success("¡Comunidad creada!");
-      setShowCreate(false);
-      setCreateName(""); setCreateDesc("");
+      setShowCreate(false); setCreateName(""); setCreateDesc("");
       navigate(`/c/${data.slug}`);
     } catch (e: any) { toast.error(e.message); }
     finally { setCreating(false); }
   };
 
   const handleJoin = async (c: Community) => {
+    if (!requireAuth({ type: "join", community: c })) return;
     setJoiningId(c.id);
     const method = c.is_member ? "DELETE" : "POST";
     const endpoint = c.is_member ? "leave" : "join";
     try {
       const r = await fetch(`${API_URL}/communities/${c.slug}/${endpoint}`, {
-        method, headers: { Authorization: `Bearer ${token}` },
+        method, headers: { Authorization: `Bearer ${getToken()}` },
       });
       const data = await r.json();
       if (!r.ok && r.status !== 409) throw new Error(data.message);
@@ -92,7 +126,9 @@ export default function CommunitiesPage() {
       <nav className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border shadow-sm">
         <div className="container mx-auto px-4 py-3 grid grid-cols-3 items-center gap-3">
           <div className="flex items-center gap-2 justify-self-start">
-            <button onClick={() => navigate("/dashboard")} className="hover:cursor-pointer w-9 h-9 rounded-full border border-border bg-card flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shrink-0">
+            <button
+              onClick={() => navigate(isGuest ? "/" : "/dashboard")}
+              className="hover:cursor-pointer w-9 h-9 rounded-full border border-border bg-card flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shrink-0">
               <ArrowLeft className="w-4 h-4" />
             </button>
             <h1 className="text-lg font-extrabold tracking-tight whitespace-nowrap">Comunidades</h1>
@@ -103,12 +139,29 @@ export default function CommunitiesPage() {
               placeholder="Buscar comunidades..."
               className="w-full pl-9 pr-4 py-2 rounded-xl bg-muted border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
           </form>
-          <button onClick={() => setShowCreate(true)}
+          <button
+            onClick={() => requireAuth({ type: "create" }) && setShowCreate(true)}
             className="hover:cursor-pointer flex items-center gap-1.5 px-3 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition-colors shrink-0 justify-self-end">
             <Plus className="w-4 h-4" /> Crear
           </button>
         </div>
       </nav>
+
+      {/* Banner para invitados */}
+      {isGuest && (
+        <div className="bg-primary/5 border-b border-primary/10">
+          <div className="container mx-auto px-4 py-2.5 flex items-center justify-between gap-4">
+            <p className="text-sm text-muted-foreground">
+              Explora las comunidades · <span className="font-semibold text-foreground">Inicia sesión para unirte o publicar</span>
+            </p>
+            <button
+              onClick={() => { setPendingAction(null); setShowLoginModal(true); }}
+              className="cursor-pointer shrink-0 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition-colors">
+              Iniciar sesión
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="container mx-auto px-4 py-5 max-w-3xl">
         {loading ? (
@@ -119,19 +172,21 @@ export default function CommunitiesPage() {
           <div className="text-center py-16 border border-dashed border-border rounded-2xl">
             <Users className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
             <p className="font-bold text-muted-foreground">No hay comunidades aún</p>
-            <button onClick={() => setShowCreate(true)} className="hover:cursor-pointer mt-3 text-sm text-primary font-bold hover:underline">Sé el primero en crear una →</button>
+            <button
+              onClick={() => requireAuth({ type: "create" }) && setShowCreate(true)}
+              className="hover:cursor-pointer mt-3 text-sm text-primary font-bold hover:underline">
+              Sé el primero en crear una →
+            </button>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {communities.map((c, i) => (
               <motion.div key={c.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}
                 className="bg-card border border-border rounded-2xl shadow-sm hover:border-primary/30 hover:shadow-md transition-all group">
-                {/* Banner — overflow-hidden solo aquí */}
                 <div className="h-20 bg-gradient-to-br from-primary/20 to-primary/5 overflow-hidden rounded-t-2xl">
                   {c.banner_url && <img src={c.banner_url} alt="" className="w-full h-full object-cover" />}
                 </div>
                 <div className="px-4 pb-4">
-                  {/* Ícono con -mt-6 libre porque el card no tiene overflow-hidden */}
                   <div className="-mt-6 mb-2">
                     <div className="w-12 h-12 rounded-xl border-4 border-card bg-primary/10 text-primary flex items-center justify-center text-base font-extrabold shadow-md overflow-hidden">
                       {c.icon_url ? <img src={c.icon_url} alt={c.name} className="w-full h-full object-cover" /> : c.name[0].toUpperCase()}
@@ -139,9 +194,17 @@ export default function CommunitiesPage() {
                   </div>
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
-                      <Link to={`/c/${c.slug}`} className="font-extrabold text-base text-foreground group-hover:text-primary transition-colors leading-tight block truncate">
-                        {c.name}
-                      </Link>
+                      {isGuest ? (
+                        <button
+                          onClick={() => requireAuth({ type: "navigate", to: `/c/${c.slug}` })}
+                          className="cursor-pointer font-extrabold text-base text-foreground group-hover:text-primary transition-colors leading-tight block truncate text-left w-full">
+                          {c.name}
+                        </button>
+                      ) : (
+                        <Link to={`/c/${c.slug}`} className="font-extrabold text-base text-foreground group-hover:text-primary transition-colors leading-tight block truncate">
+                          {c.name}
+                        </Link>
+                      )}
                       {c.description && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{c.description}</p>}
                       <div className="flex items-center gap-3 mt-2 text-[11px] text-muted-foreground font-semibold">
                         <span className="flex items-center gap-1"><Users className="w-3 h-3" />{c.member_count.toLocaleString()}</span>
@@ -149,8 +212,8 @@ export default function CommunitiesPage() {
                       </div>
                     </div>
                     <button onClick={() => handleJoin(c)} disabled={joiningId === c.id}
-                      className={`hover:cursor-pointer shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold transition-colors ${c.is_member ? 'border border-border text-muted-foreground hover:border-red-300 hover:text-red-500' : 'bg-primary text-primary-foreground hover:bg-primary/90'} disabled:opacity-50`}>
-                      {joiningId === c.id ? '...' : c.is_member ? 'Unido' : 'Unirse'}
+                      className={`hover:cursor-pointer shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold transition-colors ${c.is_member ? "border border-border text-muted-foreground hover:border-red-300 hover:text-red-500" : "bg-primary text-primary-foreground hover:bg-primary/90"} disabled:opacity-50`}>
+                      {joiningId === c.id ? "..." : c.is_member ? "Unido" : "Unirse"}
                     </button>
                   </div>
                 </div>
@@ -196,9 +259,17 @@ export default function CommunitiesPage() {
             </motion.div>
           </motion.div>
         )}
+
+        {/* Modal de login */}
+        {showLoginModal && (
+          <LoginModal
+            onClose={() => { setShowLoginModal(false); setPendingAction(null); }}
+            onSuccess={handleLoginSuccess}
+          />
+        )}
       </AnimatePresence>
 
-      <MobileNav />
+      {!isGuest && <MobileNav />}
     </div>
   );
 }

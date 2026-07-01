@@ -41,6 +41,10 @@ export const router = createBrowserRouter([
     ),
   },
   {
+    path: "/communities",
+    element: <CommunitiesPage />,
+  },
+  {
     path: "/community",
     element: (
       <PrivateRoute>
@@ -100,10 +104,6 @@ export const router = createBrowserRouter([
       {
         path: "/settings",
         element: <SettingsPage />,
-      },
-      {
-        path: "/communities",
-        element: <CommunitiesPage />,
       },
       {
         path: "/c/:slug",

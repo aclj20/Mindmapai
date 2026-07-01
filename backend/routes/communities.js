@@ -1,6 +1,7 @@
 const express = require('express');
 const db = require('../db');
 const auth = require('../middleware/auth');
+const { optionalAuth } = require('../middleware/auth');
 const { makeShortId } = require('../utils/shortId');
 
 const router = express.Router();
@@ -130,15 +131,16 @@ router.delete('/comments/:commentId', auth, (req, res) => {
 
 // ── Listado y creación ────────────────────────────────────────────────────────
 
-// GET /api/communities
-router.get('/', auth, (req, res) => {
+// GET /api/communities — público, pero enrichece con estado de membresía si hay sesión
+router.get('/', optionalAuth, (req, res) => {
   const { q } = req.query;
+  const uid = req.user?.id ?? 0;
   let sql = `SELECT c.id, c.name, c.slug, c.description, c.icon_url, c.banner_url,
              c.member_count, c.post_count, c.created_at, u.name as creator_name,
              (SELECT 1 FROM community_members WHERE community_id = c.id AND user_id = ?) as is_member,
              (SELECT role FROM community_members WHERE community_id = c.id AND user_id = ?) as my_role
              FROM communities c JOIN users u ON u.id = c.creator_id`;
-  const params = [req.user.id, req.user.id];
+  const params = [uid, uid];
   if (q) { sql += ` WHERE c.name LIKE ? OR c.description LIKE ?`; params.push(`%${q}%`, `%${q}%`); }
   sql += ` ORDER BY c.member_count DESC, c.created_at DESC LIMIT 60`;
   res.json(db.all(sql, params));

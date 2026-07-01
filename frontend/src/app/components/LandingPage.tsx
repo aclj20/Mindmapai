@@ -72,7 +72,7 @@ export default function LandingPage() {
         </div>
 
         <div className="hidden md:flex items-center gap-8">
-          <Link to="/community" className="text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors">Comunidad</Link>
+          <Link to="/communities" className="text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors">Comunidad</Link>
           <Link
             to="/login"
             className="px-5 py-2 rounded-lg border border-border text-sm font-bold text-foreground hover:bg-muted transition-all shadow-sm"
@@ -109,7 +109,7 @@ export default function LandingPage() {
                 Crear mapa <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
               </Link>
               <Link
-                to="/community"
+                to="/communities"
                 className="px-8 py-4 rounded-xl bg-card border border-border text-foreground font-bold text-base hover:bg-muted transition-all shadow-sm flex items-center justify-center"
               >
                 Explorar comunidad
@@ -322,7 +322,7 @@ export default function LandingPage() {
               <h2 className="text-3xl font-extrabold text-foreground tracking-tight mb-2">Mapas destacados</h2>
               <p className="text-muted-foreground font-medium text-sm">Inspiración creada por nuestra comunidad académica.</p>
             </div>
-            <Link to="/community" className="text-primary font-bold text-sm hover:underline">Ver todos</Link>
+            <Link to="/communities" className="text-primary font-bold text-sm hover:underline">Ver todos</Link>
           </div>
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">

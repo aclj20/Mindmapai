@@ -1,4 +1,4 @@
-import { Navigate } from "react-router";
+import { Navigate, useLocation } from "react-router";
 import { getAuthUser } from "../hooks/useAuth";
 
 interface Props {
@@ -8,9 +8,11 @@ interface Props {
 
 export default function PrivateRoute({ children, role }: Props) {
   const user = getAuthUser();
+  const location = useLocation();
 
-  if (!user) return <Navigate to="/login" replace />;
-  if (role && user.role !== role) return <Navigate to="/login" replace />;
+  const next = encodeURIComponent(location.pathname + location.search);
+  if (!user) return <Navigate to={`/login?next=${next}`} replace />;
+  if (role && user.role !== role) return <Navigate to={`/login?next=${next}`} replace />;
 
   return <>{children}</>;
 }

@@ -363,6 +363,18 @@ function createSchema() {
   // Migración: agregar description a assignments si no existe
   try { _db.run('ALTER TABLE assignments ADD COLUMN description TEXT'); } catch (_) {}
 
+  // Migración: tabla de códigos de verificación de email
+  _db.run(`CREATE TABLE IF NOT EXISTS email_verification_codes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    email TEXT NOT NULL,
+    code TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    type TEXT NOT NULL DEFAULT 'register',
+    created_at TEXT DEFAULT (datetime('now'))
+  )`);
+  // Migración: agregar columna type si la tabla ya existía sin ella
+  try { _db.run("ALTER TABLE email_verification_codes ADD COLUMN type TEXT NOT NULL DEFAULT 'register'"); } catch (_) {}
+
   // Migración: is_blocked en community_members
   try { _db.run('ALTER TABLE community_members ADD COLUMN is_blocked INTEGER DEFAULT 0'); } catch (_) {}
 
