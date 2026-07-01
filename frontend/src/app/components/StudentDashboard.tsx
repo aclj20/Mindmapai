@@ -19,7 +19,7 @@ import * as Progress from "@radix-ui/react-progress";
 import MobileNav from "./MobileNav";
 import { getAuthUser, getAvatarInitials, getToken, logout } from "../hooks/useAuth";
 
-const API_URL = "http://localhost:3001/api";
+const API_URL = import.meta.env.VITE_API_URL as string;
 
 interface RecentMap {
   id: number;

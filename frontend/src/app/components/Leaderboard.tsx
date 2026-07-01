@@ -6,7 +6,7 @@ import MobileNav from "./MobileNav";
 import { useState, useEffect, useCallback } from "react";
 import { getToken, getAvatarInitials, logout, getAuthUser } from "../hooks/useAuth";
 
-const API_URL = "http://localhost:3001/api";
+const API_URL = import.meta.env.VITE_API_URL as string;
 
 export default function Leaderboard() {
   const navigate = useNavigate();

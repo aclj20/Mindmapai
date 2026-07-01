@@ -11,7 +11,7 @@ import MobileNav from "./MobileNav";
 import { getToken, getAuthUser, getAvatarInitials } from "../hooks/useAuth";
 import { toast } from "sonner";
 
-const API_URL = "http://localhost:3001/api";
+const API_URL = import.meta.env.VITE_API_URL as string;
 
 interface CommunityInfo {
   id: number; name: string; slug: string; description: string | null;

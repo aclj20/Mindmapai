@@ -4,7 +4,7 @@ import { motion } from "motion/react";
 import { X, ArrowRight, ArrowLeft, Sparkles, Brain } from "lucide-react";
 import { getToken } from "../hooks/useAuth";
 
-const API_URL = "http://localhost:3001/api";
+const API_URL = import.meta.env.VITE_API_URL as string;
 
 interface StepDef {
   id: string;

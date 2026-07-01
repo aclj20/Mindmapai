@@ -3,7 +3,7 @@ import { useNavigate } from "react-router";
 import { X, Brain, ArrowLeft } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
-const API_URL = "http://localhost:3001/api";
+const API_URL = import.meta.env.VITE_API_URL as string;
 
 interface Props {
   onClose: () => void;

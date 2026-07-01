@@ -3,7 +3,7 @@ import { io } from "socket.io-client";
 import { getToken, logout, getAvatarInitials, getAuthUser } from "../hooks/useAuth";
 import { jsPDF } from "jspdf";
 
-const API_URL = "http://localhost:3001/api";
+const API_URL = import.meta.env.VITE_API_URL as string;
 import { Link, useParams, useNavigate } from "react-router";
 import {
   ZoomIn,
@@ -585,7 +585,7 @@ export default function ConceptMapView() {
     if (!id || !authUserRef.current) return;
 
     console.log("SOCKET: Inicializando conexión a socket.io...");
-    const socket = io("http://localhost:3001", { transports: ["websocket"] });
+    const socket = io((import.meta.env.VITE_API_URL as string).replace('/api', ''), { transports: ["websocket"] });
     socketRef.current = socket;
 
     socket.on("connect", () => {

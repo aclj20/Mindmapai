@@ -17,7 +17,7 @@ import * as Tabs from "@radix-ui/react-tabs";
 import MobileNav from "./MobileNav";
 import { getToken } from "../hooks/useAuth";
 
-const API_URL = "http://localhost:3001/api";
+const API_URL = import.meta.env.VITE_API_URL as string;
 
 const STEPS = [
   { at: 10, label: "Iniciando motor de IA..." },

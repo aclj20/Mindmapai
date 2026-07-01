@@ -9,7 +9,7 @@ import MobileNav from "./MobileNav";
 import { getAvatarInitials, getToken, getAuthUser } from "../hooks/useAuth";
 import * as LucideIcons from "lucide-react";
 
-const API_URL = "http://localhost:3001/api";
+const API_URL = import.meta.env.VITE_API_URL as string;
 
 interface Achievement {
   id: number; name: string; description: string;

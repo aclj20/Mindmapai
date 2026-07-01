@@ -3,7 +3,7 @@ import { useNavigate, Link } from "react-router";
 import { Shield, Mail, Lock, Eye, EyeOff, AlertCircle } from "lucide-react";
 import { motion } from "motion/react";
 
-const API_URL = "http://localhost:3001/api";
+const API_URL = import.meta.env.VITE_API_URL as string;
 
 export default function AdminLogin() {
   const navigate = useNavigate();

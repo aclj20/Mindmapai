@@ -14,7 +14,7 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { getToken } from "../hooks/useAuth";
 import { toast } from "sonner";
 
-const API_URL = "http://localhost:3001/api";
+const API_URL = import.meta.env.VITE_API_URL as string;
 
 interface Group {
   id: number;

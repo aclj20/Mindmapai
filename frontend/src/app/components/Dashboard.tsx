@@ -27,7 +27,7 @@ import MobileNav from "./MobileNav";
 import { getAuthUser, getAvatarInitials, getToken, logout } from "../hooks/useAuth";
 import { toast } from "sonner";
 
-const API_URL = "http://localhost:3001/api";
+const API_URL = import.meta.env.VITE_API_URL as string;
 
 const CRITERIA_LABELS: Record<string, string> = {
   maps_created:    "mapas creados",
