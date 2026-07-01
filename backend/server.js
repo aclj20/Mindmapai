@@ -8,27 +8,51 @@ const db = require('./db');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-app.use(cors({ origin: 'http://localhost:5173' }));
+const allowedOrigins = [
+  'http://localhost:5173',
+  'https://mind-mapa-ia.vercel.app'
+];
+
+app.use(cors({
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('No permitido por CORS'));
+    }
+  },
+  credentials: true
+}));
+
 app.use(express.json());
 
-app.use('/api/auth',         require('./routes/auth'));
-app.use('/api/users',        require('./routes/users'));
+app.use('/api/auth', require('./routes/auth'));
+app.use('/api/users', require('./routes/users'));
 app.use('/api/maps/generate', require('./routes/generate'));
-app.use('/api/maps',         require('./routes/maps'));
-app.use('/api/groups',       require('./routes/groups'));
-app.use('/api/leaderboard',  require('./routes/leaderboard'));
+app.use('/api/maps', require('./routes/maps'));
+app.use('/api/groups', require('./routes/groups'));
+app.use('/api/leaderboard', require('./routes/leaderboard'));
 app.use('/api/achievements', require('./routes/achievements'));
-app.use('/api/sessions',     require('./routes/sessions'));
-app.use('/api/admin',        require('./routes/admin'));
-app.use('/api/upload',       require('./routes/upload'));
-app.use('/api/communities',  require('./routes/communities'));
+app.use('/api/sessions', require('./routes/sessions'));
+app.use('/api/admin', require('./routes/admin'));
+app.use('/api/upload', require('./routes/upload'));
+app.use('/api/communities', require('./routes/communities'));
 
 app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
 
 const server = http.createServer(app);
+// const io = new Server(server, {
+//   cors: {
+//     origin: 'http://localhost:5173',
+//     methods: ['GET', 'POST']
+//   }
+// });
+
+
 const io = new Server(server, {
   cors: {
-    origin: 'http://localhost:5173',
+    origin: allowedOrigins,
+    credentials: true,
     methods: ['GET', 'POST']
   }
 });
