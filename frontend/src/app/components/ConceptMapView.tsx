@@ -125,6 +125,7 @@ export default function ConceptMapView() {
   const [draggedNodeId, setDraggedNodeId] = useState<string | null>(null);
   const draggedNodeIdRef = useRef<string | null>(null);
   draggedNodeIdRef.current = draggedNodeId;
+  const pinchRef = useRef<{ dist: number; zoom: number } | null>(null);
 
   const authUserRef = useRef<any>(null);
   authUserRef.current = authUser;
@@ -882,10 +883,16 @@ export default function ConceptMapView() {
       });
     }
     setIsDragging(false);
+    pinchRef.current = null;
   };
 
   const handleTouchStart = (e: React.TouchEvent) => {
-    if (e.touches.length === 1 && (e.target as SVGElement).tagName === "svg") {
+    if (e.touches.length === 2) {
+      const t0 = e.touches[0]; const t1 = e.touches[1];
+      const dist = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY);
+      pinchRef.current = { dist, zoom };
+      setIsDragging(false);
+    } else if (e.touches.length === 1 && (e.target as SVGElement).tagName === "svg") {
       const t = e.touches[0];
       setIsDragging(true);
       setDragStart({ x: t.clientX - pan.x, y: t.clientY - pan.y });
@@ -893,6 +900,13 @@ export default function ConceptMapView() {
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length === 2 && pinchRef.current) {
+      const t0 = e.touches[0]; const t1 = e.touches[1];
+      const dist = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY);
+      const newZoom = Math.min(2, Math.max(0.2, pinchRef.current.zoom * (dist / pinchRef.current.dist)));
+      setZoom(newZoom);
+      return;
+    }
     if (e.touches.length !== 1) return;
     const t = e.touches[0];
     if (draggedNodeId && userRole !== "viewer") {
