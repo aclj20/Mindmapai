@@ -262,7 +262,7 @@ export default function PostDetailPage() {
           <form onSubmit={handleComment} className="flex gap-2">
             <textarea value={commentText} onChange={e => setCommentText(e.target.value)}
               placeholder={replyTo ? `Responder a ${replyTo.name}...` : "Añade un comentario..."}
-              rows={2}
+              rows={1}
               className="flex-1 px-4 py-3 rounded-xl bg-muted border border-border text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
             <button type="submit" disabled={submittingComment || !commentText.trim()}
               className="px-4 bg-primary text-primary-foreground rounded-xl font-bold transition-colors disabled:opacity-50 flex items-center justify-center self-stretch">
