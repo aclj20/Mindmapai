@@ -884,6 +884,36 @@ export default function ConceptMapView() {
     setIsDragging(false);
   };
 
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 1 && (e.target as SVGElement).tagName === "svg") {
+      const t = e.touches[0];
+      setIsDragging(true);
+      setDragStart({ x: t.clientX - pan.x, y: t.clientY - pan.y });
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length !== 1) return;
+    const t = e.touches[0];
+    if (draggedNodeId && userRole !== "viewer") {
+      const dx = (t.clientX - dragStart.x) / zoom;
+      const dy = (t.clientY - dragStart.y) / zoom;
+      setNodes((prev) =>
+        prev.map((n) => {
+          if (n.id === draggedNodeId) {
+            const updated = { ...n, x: n.x + dx, y: n.y + dy };
+            socketRef.current?.emit("node-drag", { nodeId: n.id, x: updated.x, y: updated.y });
+            return updated;
+          }
+          return n;
+        })
+      );
+      setDragStart({ x: t.clientX, y: t.clientY });
+    } else if (isDragging) {
+      setPan({ x: t.clientX - dragStart.x, y: t.clientY - dragStart.y });
+    }
+  };
+
   const handleDeleteNode = (nodeId: string) => {
     if (userRole === "viewer") return;
 
@@ -1746,11 +1776,17 @@ export default function ConceptMapView() {
           <svg
             ref={svgRef}
             className={`w-full h-full outline-none ${activeTool === "eraser" ? "" : "cursor-grab active:cursor-grabbing"}`}
-            style={activeTool === "eraser" ? { cursor: `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23ef4444' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M20 20H7L3 16l8-8 8 8-3 3M17 17l-3-3'/></svg>") 4 16, pointer` } : {}}
+            style={{
+              touchAction: 'none',
+              ...(activeTool === "eraser" ? { cursor: `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23ef4444' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M20 20H7L3 16l8-8 8 8-3 3M17 17l-3-3'/></svg>") 4 16, pointer` } : {}),
+            }}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseUp}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleMouseUp}
             onClick={(e) => {
               if ((e.target as HTMLElement).tagName === "svg") {
                 setSelectedNode(null);
@@ -1844,6 +1880,14 @@ export default function ConceptMapView() {
                         e.stopPropagation();
                         setDraggedNodeId(node.id);
                         setDragStart({ x: e.clientX, y: e.clientY });
+                      }
+                    }}
+                    onTouchStart={(e) => {
+                      if (userRole !== "viewer" && activeTool === "select") {
+                        e.stopPropagation();
+                        const t = e.touches[0];
+                        setDraggedNodeId(node.id);
+                        setDragStart({ x: t.clientX, y: t.clientY });
                       }
                     }}
                     onClick={(e) => {
