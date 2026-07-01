@@ -356,7 +356,7 @@ export default function GroupDetailPage() {
   const isTeacher = group.myRole === "admin" || group.myRole === "teacher";
 
   return (
-    <div className="min-h-screen bg-background pb-20 md:pb-0 font-sans text-foreground">
+    <div className="min-h-screen bg-background pb-20 md:pb-0 font-sans text-foreground overflow-x-hidden">
       {/* Barra de navegación */}
       <nav className="p-4 bg-background border-b border-border shadow-sm sticky top-0 z-10">
         <div className="container mx-auto flex items-center gap-4">
@@ -376,9 +376,9 @@ export default function GroupDetailPage() {
         </div>
       </nav>
 
-      <div className="container mx-auto p-4 md:p-6 max-w-5xl space-y-6">
+      <div className="container mx-auto p-3 sm:p-4 md:p-6 max-w-5xl space-y-6">
         {/* Cabecera / Info del Grupo */}
-        <div className="p-6 rounded-2xl bg-card border border-border shadow-md flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div className="p-4 sm:p-6 rounded-2xl bg-card border border-border shadow-md flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
             <h2 className="text-xl md:text-2xl font-bold tracking-tight">{group.name}</h2>
             <p className="text-sm text-muted-foreground mt-1 font-semibold">
@@ -399,7 +399,7 @@ export default function GroupDetailPage() {
         </div>
 
         {/* Pestañas de Navegación */}
-        <div className="flex border-b border-border/85">
+        <div className="flex overflow-x-auto border-b border-border/85 scrollbar-none">
           {[
             { id: "board", label: "Tablón", icon: Megaphone },
             { id: "members", label: "Participantes", icon: Users },
@@ -413,12 +413,13 @@ export default function GroupDetailPage() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as typeof activeTab)}
-                className={`flex items-center gap-2 px-4 py-3 text-xs md:text-sm font-bold transition-all relative outline-none ${
+                title={tab.label}
+                className={`flex items-center gap-1.5 px-3 sm:px-4 py-3 text-xs font-bold transition-all relative outline-none shrink-0 ${
                   active ? "text-primary" : "text-muted-foreground hover:text-foreground"
                 }`}
               >
                 <Icon className="w-4 h-4" />
-                {tab.label}
+                <span className="hidden sm:inline">{tab.label}</span>
                 {active && (
                   <motion.div
                     layoutId="activeGroupTab"
@@ -434,7 +435,7 @@ export default function GroupDetailPage() {
         <div className="min-h-[300px]">
           {activeTab === "maps" && (
             <div className="space-y-6">
-              <div className="flex justify-between items-center">
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
                 <div>
                   <h3 className="text-lg font-bold tracking-tight">Mapas del grupo</h3>
                   <p className="text-xs text-muted-foreground font-semibold">
@@ -444,7 +445,7 @@ export default function GroupDetailPage() {
                 {isTeacher && (
                   <Link
                     to={`/map/create?group_id=${group.id}&group_public_id=${group.public_id}&group_name=${encodeURIComponent(group.name)}`}
-                    className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-primary hover:bg-primary-hover text-primary-foreground transition-all font-semibold text-xs shadow-md shadow-primary/10"
+                    className="self-start flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-primary hover:bg-primary-hover text-primary-foreground transition-all font-semibold text-xs shadow-md shadow-primary/10"
                   >
                     <Plus className="w-3.5 h-3.5" />
                     Nuevo Mapa
@@ -863,7 +864,7 @@ export default function GroupDetailPage() {
 
           {activeTab === "assignments" && (
             <div className="space-y-6">
-              <div className="flex justify-between items-center">
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
                 <div>
                   <h3 className="text-lg font-bold tracking-tight">Tareas de la clase</h3>
                   <p className="text-xs text-muted-foreground font-semibold">
@@ -873,7 +874,7 @@ export default function GroupDetailPage() {
                 {isTeacher && (
                   <button
                     onClick={() => setShowCreateAssignmentModal(true)}
-                    className="cursor-pointer flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-primary hover:bg-primary-hover text-primary-foreground transition-all font-semibold text-xs shadow-md shadow-primary/10"
+                    className="self-start cursor-pointer flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-primary hover:bg-primary-hover text-primary-foreground transition-all font-semibold text-xs shadow-md shadow-primary/10"
                   >
                     <Plus className="w-3.5 h-3.5" /> Nueva Tarea
                   </button>

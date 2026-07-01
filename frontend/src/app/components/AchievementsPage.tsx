@@ -140,7 +140,7 @@ export default function AchievementsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20 md:pb-0 font-sans">
+    <div className="min-h-screen bg-gray-50 pb-20 md:pb-0 font-sans overflow-x-hidden">
       <nav className="p-4 bg-white border-b border-gray-200 shadow-sm sticky top-0 z-10">
         <div className="container mx-auto flex items-center gap-4">
           <Link
@@ -156,35 +156,35 @@ export default function AchievementsPage() {
         </div>
       </nav>
 
-      <div className="container mx-auto p-6 max-w-6xl">
+      <div className="container mx-auto p-4 sm:p-6 max-w-6xl">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="p-6 rounded-xl bg-purple-50 border border-purple-100 shadow-sm mb-8"
+          className="p-4 sm:p-6 rounded-xl bg-purple-50 border border-purple-100 shadow-sm mb-8"
         >
-          <div className="grid md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-3 gap-3 sm:gap-6">
             <div className="text-center">
-              <div className="text-4xl font-bold text-purple-900 mb-1">
+              <div className="text-2xl sm:text-4xl font-bold text-purple-900 mb-1">
                 {stats.unlocked}/{stats.total}
               </div>
-              <div className="text-purple-700 font-medium text-sm">Logros desbloqueados</div>
+              <div className="text-purple-700 font-medium text-xs sm:text-sm">Logros desbloqueados</div>
             </div>
             <div className="text-center">
-              <div className="text-4xl font-bold text-purple-600 mb-1">
+              <div className="text-2xl sm:text-4xl font-bold text-purple-600 mb-1">
                 {stats.totalXp}
               </div>
-              <div className="text-purple-700 font-medium text-sm">XP de logros</div>
+              <div className="text-purple-700 font-medium text-xs sm:text-sm">XP de logros</div>
             </div>
             <div className="text-center">
-              <div className="text-4xl font-bold text-purple-900 mb-1">
+              <div className="text-2xl sm:text-4xl font-bold text-purple-900 mb-1">
                 {Math.round((stats.unlocked / stats.total) * 100)}%
               </div>
-              <div className="text-purple-700 font-medium text-sm">Completado</div>
+              <div className="text-purple-700 font-medium text-xs sm:text-sm">Completado</div>
             </div>
           </div>
         </motion.div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           {achievements.map((achievement, i) => (
             <motion.div
               key={i}

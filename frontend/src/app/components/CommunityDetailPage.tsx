@@ -303,7 +303,7 @@ export default function CommunityDetailPage() {
     : null;
 
   return (
-    <div className="min-h-screen bg-muted/30 pb-24 md:pb-8 font-sans text-foreground">
+    <div className="min-h-screen bg-muted/30 pb-24 md:pb-8 font-sans text-foreground overflow-x-hidden">
 
       {/* ── BANNER ───────────────────────────────────────── */}
       <div className="relative h-44 md:h-52 overflow-hidden bg-gradient-to-br from-primary/30 to-primary/5">
@@ -344,8 +344,8 @@ export default function CommunityDetailPage() {
               <div className="flex items-center gap-2 shrink-0">
                 {isMember && (
                   <button onClick={openCreatePost}
-                    className="hidden md:flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary/10 text-primary text-sm font-bold hover:bg-primary/20 transition-colors">
-                    <Plus className="w-4 h-4" /> Nuevo post
+                    className="flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-xl bg-primary/10 text-primary text-sm font-bold hover:bg-primary/20 transition-colors">
+                    <Plus className="w-4 h-4" /> <span className="hidden md:inline">Nuevo post</span>
                   </button>
                 )}
                 <button onClick={handleJoin} disabled={joining}
@@ -579,9 +579,9 @@ export default function CommunityDetailPage() {
       <AnimatePresence>
         {showPost && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center sm:p-4">
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[200] flex items-end sm:items-center justify-center sm:p-4">
             <motion.div initial={{ y: 40 }} animate={{ y: 0 }} exit={{ y: 40 }}
-              className="bg-card border border-border rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-lg max-h-[90vh] overflow-y-auto">
+              className="bg-card border border-border rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-lg max-h-[85dvh] sm:max-h-[90vh] overflow-y-auto pb-safe">
 
               <div className="flex items-center justify-between px-5 py-4 border-b border-border sticky top-0 bg-card z-10">
                 <h2 className="font-bold text-base">Nueva publicación</h2>
@@ -589,7 +589,7 @@ export default function CommunityDetailPage() {
                   className="p-1.5 rounded-lg text-muted-foreground hover:bg-muted"><X className="w-4 h-4" /></button>
               </div>
 
-              <form onSubmit={handleCreatePost} className="p-5 space-y-4">
+              <form onSubmit={handleCreatePost} className="p-5 space-y-4 pb-6 sm:pb-5">
                 {/* Título */}
                 <input type="text" required value={postTitle} onChange={e => setPostTitle(e.target.value)}
                   placeholder="Título"

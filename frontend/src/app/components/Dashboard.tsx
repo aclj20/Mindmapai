@@ -340,13 +340,13 @@ export default function Dashboard() {
               className="p-6 md:p-8 rounded-2xl bg-card border border-border shadow-md"
             >
               <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-3 sm:gap-4 min-w-0">
                   <Link to="/profile" className="relative group shrink-0" title="Editar perfil">
                     {user.avatarUrl ? (
                       <img src={user.avatarUrl} alt={user.name}
-                        className="w-14 h-14 md:w-16 md:h-16 rounded-full object-cover border-2 border-primary/20 shadow-sm" />
+                        className="w-12 h-12 sm:w-16 sm:h-16 rounded-full object-cover border-2 border-primary/20 shadow-sm" />
                     ) : (
-                      <div className="w-14 h-14 md:w-16 md:h-16 rounded-full bg-primary-subtle border border-primary/20 flex items-center justify-center text-primary text-xl font-extrabold shadow-sm">
+                      <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-primary-subtle border border-primary/20 flex items-center justify-center text-primary text-lg sm:text-xl font-extrabold shadow-sm">
                         {user.avatar}
                       </div>
                     )}
@@ -354,15 +354,15 @@ export default function Dashboard() {
                       <Edit2 className="w-4 h-4 text-white" />
                     </div>
                   </Link>
-                  <div>
-                    <h2 className="text-xl md:text-2xl font-bold text-foreground">
+                  <div className="min-w-0">
+                    <h2 className="text-lg sm:text-2xl font-bold text-foreground truncate">
                       ¡Hola, {user.name}!
                     </h2>
-                    <p className="text-sm text-muted-foreground font-semibold">
+                    <p className="text-xs sm:text-sm text-muted-foreground font-semibold truncate">
                       {user.rank === null || user.rank === "-" || user.rank === 0 ? (
-                        <>Nivel {user.level} · {user.xp} XP • Ranking global: Aún sin clasificación</>
+                        <>Nivel {user.level} · {user.xp} XP · Sin clasificación</>
                       ) : (
-                        <>Nivel {user.level} · {user.xp} XP • Rank Global #{user.rank}</>
+                        <>Nivel {user.level} · {user.xp} XP · Rank #{user.rank}</>
                       )}
                     </p>
                   </div>
@@ -387,18 +387,18 @@ export default function Dashboard() {
                 </Progress.Root>
               </div>
 
-              <div className="flex gap-4 mt-6">
-                <div className="flex-1 p-4 rounded-xl bg-muted/60 border border-border flex items-center gap-3">
-                  <Flame className="w-8 h-8 text-primary" />
+              <div className="flex gap-3 sm:gap-4 mt-6">
+                <div className="flex-1 p-3 sm:p-4 rounded-xl bg-muted/60 border border-border flex items-center gap-2 sm:gap-3">
+                  <Flame className="w-6 h-6 sm:w-8 sm:h-8 text-primary shrink-0" />
                   <div>
-                    <div className="text-2xl font-extrabold tracking-tight">{user.streak}</div>
+                    <div className="text-xl sm:text-2xl font-extrabold tracking-tight">{user.streak}</div>
                     <div className="text-xs text-muted-foreground font-semibold">Días de racha</div>
                   </div>
                 </div>
-                <div className="flex-1 p-4 rounded-xl bg-muted/60 border border-border flex items-center gap-3">
-                  <Trophy className="w-8 h-8 text-primary" />
-                  <div>
-                    <div className="text-2xl font-extrabold tracking-tight">{user.totalPoints.toLocaleString()}</div>
+                <div className="flex-1 p-3 sm:p-4 rounded-xl bg-muted/60 border border-border flex items-center gap-2 sm:gap-3">
+                  <Trophy className="w-6 h-6 sm:w-8 sm:h-8 text-primary shrink-0" />
+                  <div className="min-w-0">
+                    <div className="text-xl sm:text-2xl font-extrabold tracking-tight truncate">{user.totalPoints.toLocaleString()}</div>
                     <div className="text-xs text-muted-foreground font-semibold">Puntos totales</div>
                   </div>
                 </div>
@@ -535,20 +535,20 @@ export default function Dashboard() {
             </div>
 
             {/* ESTADÍSTICAS */}
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-3 gap-2 sm:gap-4">
               {stats.map((stat, i) => (
                 <motion.div
                   key={i}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.1 }}
-                  className="p-4 rounded-xl bg-card border border-border shadow-sm text-center"
+                  className="p-3 sm:p-4 rounded-xl bg-card border border-border shadow-sm text-center"
                 >
-                  <stat.icon className="w-6 h-6 text-primary mx-auto mb-2" />
-                  <div className="text-xl md:text-2xl font-extrabold tracking-tight">
+                  <stat.icon className="w-5 h-5 sm:w-6 sm:h-6 text-primary mx-auto mb-1.5 sm:mb-2" />
+                  <div className="text-lg sm:text-2xl font-extrabold tracking-tight">
                     {stat.value}
                   </div>
-                  <div className="text-[10px] md:text-xs text-muted-foreground font-bold uppercase tracking-wider">{stat.label}</div>
+                  <div className="text-[9px] sm:text-xs text-muted-foreground font-bold uppercase tracking-wider leading-tight mt-0.5">{stat.label}</div>
                 </motion.div>
               ))}
             </div>

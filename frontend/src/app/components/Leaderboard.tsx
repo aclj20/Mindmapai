@@ -245,7 +245,7 @@ export default function Leaderboard() {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-24 md:pb-0 font-sans text-foreground">
+    <div className="min-h-screen bg-background pb-24 md:pb-0 font-sans text-foreground overflow-x-hidden">
       <nav className="p-4 bg-background border-b border-border shadow-sm sticky top-0 z-10">
         <div className="container mx-auto flex items-center gap-3">
           <Link
@@ -275,7 +275,7 @@ export default function Leaderboard() {
         </div>
 
         <Tabs.Root value={period} onValueChange={(v) => { setPeriod(v); }} className="space-y-6">
-          <Tabs.List className="flex gap-1 p-1 rounded-xl bg-card border border-border shadow-sm w-fit">
+          <Tabs.List className="flex gap-1 p-1 rounded-xl bg-card border border-border shadow-sm w-full sm:w-fit">
             {[
               { value: "alltime", label: "Todo el tiempo" },
               { value: "monthly", label: "Este mes" },
@@ -284,7 +284,7 @@ export default function Leaderboard() {
               <Tabs.Trigger
                 key={value}
                 value={value}
-                className="px-4 py-2 rounded-lg text-xs font-bold text-muted-foreground transition-all hover:bg-muted data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                className="flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-lg text-xs font-bold text-muted-foreground transition-all hover:bg-muted data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
               >
                 {label}
               </Tabs.Trigger>

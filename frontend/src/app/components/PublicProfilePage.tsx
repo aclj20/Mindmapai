@@ -82,7 +82,7 @@ export default function PublicProfilePage() {
   const xpPct = Math.min(100, Math.round((user.xp / user.xp_to_next) * 100));
 
   return (
-    <div className="min-h-screen bg-background pb-24 md:pb-0 font-sans text-foreground">
+    <div className="min-h-screen bg-background pb-24 md:pb-0 font-sans text-foreground overflow-x-hidden">
       {/* Nav */}
       <nav className="p-4 bg-background border-b border-border shadow-sm sticky top-0 z-10">
         <div className="container mx-auto flex items-center gap-3">

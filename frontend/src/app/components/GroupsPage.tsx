@@ -113,7 +113,7 @@ export default function GroupsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-20 md:pb-0 font-sans text-foreground">
+    <div className="min-h-screen bg-background pb-20 md:pb-0 font-sans text-foreground overflow-x-hidden">
       <nav className="p-4 bg-background border-b border-border shadow-sm sticky top-0 z-10">
         <div className="container mx-auto flex items-center gap-4">
           <Link
@@ -130,22 +130,24 @@ export default function GroupsPage() {
       </nav>
 
       <div className="container mx-auto p-4 md:p-6 max-w-4xl space-y-6">
-        <div className="flex justify-between items-center">
-          <h2 className="text-2xl font-bold tracking-tight">Grupos activos</h2>
+        <div className="flex flex-wrap justify-between items-center gap-3">
+          <h2 className="text-xl sm:text-2xl font-bold tracking-tight">Grupos activos</h2>
           <div className="flex gap-2">
             <button
               onClick={() => setShowJoinModal(true)}
-              className="cursor-pointer px-4 py-2 rounded-xl border border-border bg-card hover:bg-muted text-foreground transition-colors flex items-center gap-2 font-semibold text-sm"
+              className="cursor-pointer px-3 sm:px-4 py-2 rounded-xl border border-border bg-card hover:bg-muted text-foreground transition-colors flex items-center gap-1.5 sm:gap-2 font-semibold text-sm"
             >
               <LogIn className="w-4 h-4" />
-              Unirse
+              <span className="hidden xs:inline">Unirse</span>
+              <span className="xs:hidden">Unirse</span>
             </button>
             <button
               onClick={() => setShowCreateModal(true)}
-              className="cursor-pointer px-4 py-2 rounded-xl bg-primary hover:bg-primary-hover text-primary-foreground transition-colors flex items-center gap-2 font-semibold text-sm shadow-md shadow-primary/10"
+              className="cursor-pointer px-3 sm:px-4 py-2 rounded-xl bg-primary hover:bg-primary-hover text-primary-foreground transition-colors flex items-center gap-1.5 sm:gap-2 font-semibold text-sm shadow-md shadow-primary/10"
             >
               <Plus className="w-4 h-4" />
-              Crear grupo
+              <span className="hidden sm:inline">Crear grupo</span>
+              <span className="sm:hidden">Crear</span>
             </button>
           </div>
         </div>

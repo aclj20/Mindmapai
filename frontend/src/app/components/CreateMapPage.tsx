@@ -267,7 +267,7 @@ export default function CreateMapPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-20 md:pb-0">
+    <div className="min-h-screen bg-background pb-20 md:pb-0 overflow-x-hidden">
       <nav className="p-3 md:p-4 bg-background border-b border-border shadow-sm">
         <div className="container mx-auto flex items-center gap-4">
           <Link
@@ -278,20 +278,20 @@ export default function CreateMapPage() {
           </Link>
           <h1 className="text-xl font-semibold text-foreground tracking-tight">MindMap AI</h1>
           {groupId && groupName && (
-            <span className="ml-2 text-xs font-bold bg-primary-subtle text-primary border border-primary/20 px-2.5 py-1 rounded-full">
+            <span className="ml-2 text-xs font-bold bg-primary-subtle text-primary border border-primary/20 px-2.5 py-1 rounded-full truncate max-w-[140px] sm:max-w-none">
               Publicando en: {decodeURIComponent(groupName)}
             </span>
           )}
         </div>
       </nav>
 
-      <div className="container mx-auto p-6 max-w-4xl">
+      <div className="container mx-auto p-4 sm:p-6 max-w-4xl">
         {!isGenerating ? (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
           >
-            <div className="text-center mb-10">
+            <div className="text-center mb-6 sm:mb-10">
               <div className="w-16 h-16 rounded-full bg-primary-subtle flex items-center justify-center mx-auto mb-6">
                 <Sparkles className="w-8 h-8 text-primary" />
               </div>
@@ -307,21 +307,21 @@ export default function CreateMapPage() {
               <Tabs.List data-tutorial="create-tabs" className="grid grid-cols-3 gap-2 p-1 rounded-xl bg-card border border-border shadow-sm">
                 <Tabs.Trigger
                   value="text"
-                  className="hover:cursor-pointer px-6 py-2.5 rounded-md text-muted-foreground font-medium transition-all hover:bg-muted data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center justify-center gap-2"
+                  className="hover:cursor-pointer px-2 sm:px-6 py-2.5 rounded-md text-muted-foreground font-medium transition-all hover:bg-muted data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center justify-center gap-1.5 sm:gap-2 text-sm"
                 >
                   <FileText className="w-4 h-4" />
                   Texto
                 </Tabs.Trigger>
                 <Tabs.Trigger
                   value="file"
-                  className="hover:cursor-pointer px-6 py-2.5 rounded-md text-muted-foreground font-medium transition-all hover:bg-muted data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center justify-center gap-2"
+                  className="hover:cursor-pointer px-2 sm:px-6 py-2.5 rounded-md text-muted-foreground font-medium transition-all hover:bg-muted data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center justify-center gap-1.5 sm:gap-2 text-sm"
                 >
                   <Upload className="w-4 h-4" />
                   Archivo
                 </Tabs.Trigger>
                 <Tabs.Trigger
                   value="audio"
-                  className="hover:cursor-pointer px-6 py-2.5 rounded-md text-muted-foreground font-medium transition-all hover:bg-muted data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center justify-center gap-2"
+                  className="hover:cursor-pointer px-2 sm:px-6 py-2.5 rounded-md text-muted-foreground font-medium transition-all hover:bg-muted data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center justify-center gap-1.5 sm:gap-2 text-sm"
                 >
                   <Mic className="w-4 h-4" />
                   Audio
@@ -361,7 +361,7 @@ export default function CreateMapPage() {
                     onDragLeave={() => setIsDragging(false)}
                     onDrop={handleDrop}
                     onClick={() => fileInputRef.current?.click()}
-                    className={`p-10 rounded-lg border-2 border-dashed transition-colors cursor-pointer flex flex-col items-center justify-center gap-3 ${
+                    className={`p-6 sm:p-10 rounded-lg border-2 border-dashed transition-colors cursor-pointer flex flex-col items-center justify-center gap-3 ${
                       isDragging ? "border-primary bg-primary-subtle" : "border-border hover:border-primary"
                     }`}
                   >

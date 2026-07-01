@@ -170,7 +170,7 @@ export default function PostDetailPage() {
   if (!post) return null;
 
   return (
-    <div className="min-h-screen bg-background pb-24 md:pb-0 font-sans text-foreground">
+    <div className="min-h-screen bg-background pb-24 md:pb-0 font-sans text-foreground overflow-x-hidden">
       <nav className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border shadow-sm">
         <div className="container mx-auto px-4 py-3 flex items-center gap-3">
           <button onClick={() => navigate(-1)} className="w-9 h-9 rounded-full border border-border bg-card flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
@@ -265,7 +265,7 @@ export default function PostDetailPage() {
               rows={2}
               className="flex-1 px-4 py-3 rounded-xl bg-muted border border-border text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
             <button type="submit" disabled={submittingComment || !commentText.trim()}
-              className="px-4 py-3 bg-primary text-primary-foreground rounded-xl font-bold transition-colors disabled:opacity-50 flex items-center gap-1.5 text-sm self-end">
+              className="px-4 bg-primary text-primary-foreground rounded-xl font-bold transition-colors disabled:opacity-50 flex items-center justify-center self-stretch">
               <Send className="w-4 h-4" />
             </button>
           </form>

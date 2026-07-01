@@ -68,7 +68,7 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-20 md:pb-0 font-sans text-foreground">
+    <div className="min-h-screen bg-background pb-20 md:pb-0 font-sans text-foreground overflow-x-hidden">
       <nav className="p-4 bg-background border-b border-border shadow-sm sticky top-0 z-10">
         <div className="container mx-auto flex items-center gap-4">
           <Link
@@ -82,7 +82,7 @@ export default function SettingsPage() {
         </div>
       </nav>
 
-      <div className="container mx-auto p-6 max-w-4xl">
+      <div className="container mx-auto p-4 sm:p-6 max-w-4xl">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}

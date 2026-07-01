@@ -149,7 +149,7 @@ export default function ProfilePage() {
   const xpPercent     = xpToNext > 0 ? (xp / xpToNext) * 100 : 0;
 
   return (
-    <div className="min-h-screen bg-background pb-20 md:pb-0 font-sans">
+    <div className="min-h-screen bg-background pb-20 md:pb-0 font-sans overflow-x-hidden">
       <nav className="p-4 bg-card border-b border-border shadow-sm">
         <div className="container mx-auto flex items-center gap-4">
           <Link to="/dashboard" className="w-10 h-10 rounded-full border border-border bg-card flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
@@ -159,19 +159,19 @@ export default function ProfilePage() {
         </div>
       </nav>
 
-      <div className="container mx-auto p-6 max-w-4xl space-y-6">
+      <div className="container mx-auto p-4 sm:p-6 max-w-4xl space-y-6">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
 
           {/* ── Tarjeta principal ── */}
-          <div className="p-8 rounded-2xl bg-card border border-border shadow-sm relative overflow-hidden">
-            <div className="flex items-start gap-6 mb-6">
+          <div className="p-4 sm:p-8 rounded-2xl bg-card border border-border shadow-sm relative overflow-hidden">
+            <div className="flex items-start gap-4 sm:gap-6 mb-6">
               {/* Avatar */}
               <div className="relative shrink-0 group">
                 {displayAvatar ? (
                   <img src={displayAvatar} alt={displayName}
-                    className="w-24 h-24 rounded-full object-cover border-4 border-primary/20 shadow-md" />
+                    className="w-16 h-16 sm:w-24 sm:h-24 rounded-full object-cover border-4 border-primary/20 shadow-md" />
                 ) : (
-                  <div className="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center text-primary text-3xl font-bold border-4 border-primary/20">
+                  <div className="w-16 h-16 sm:w-24 sm:h-24 rounded-full bg-primary/10 flex items-center justify-center text-primary text-2xl sm:text-3xl font-bold border-4 border-primary/20">
                     {initials}
                   </div>
                 )}
@@ -217,27 +217,27 @@ export default function ProfilePage() {
           </div>
 
           {/* ── Stats ── */}
-          <div className="grid md:grid-cols-3 gap-4 mt-6">
+          <div className="grid grid-cols-3 gap-3 sm:gap-4 mt-6">
             {[
               { icon: Flame, color: "text-orange-500", value: userData?.streak ?? 0, label: "Días de racha" },
               { icon: Trophy, color: "text-amber-500", value: (userData?.total_points ?? 0).toLocaleString(), label: "Puntos totales" },
               { icon: Star, color: "text-primary", value: totalNodes, label: "Conceptos dominados" },
             ].map(({ icon: Icon, color, value, label }) => (
-              <div key={label} className="p-6 rounded-2xl bg-card border border-border shadow-sm">
-                <Icon className={`w-8 h-8 ${color} mb-3`} />
-                <div className="text-3xl font-bold text-foreground mb-1">{value}</div>
-                <div className="text-sm text-muted-foreground font-medium">{label}</div>
+              <div key={label} className="p-3 sm:p-6 rounded-2xl bg-card border border-border shadow-sm">
+                <Icon className={`w-6 h-6 sm:w-8 sm:h-8 ${color} mb-2 sm:mb-3`} />
+                <div className="text-xl sm:text-3xl font-bold text-foreground mb-1">{value}</div>
+                <div className="text-xs sm:text-sm text-muted-foreground font-medium">{label}</div>
               </div>
             ))}
           </div>
 
           {/* ── Logros ── */}
-          <div className="mt-6 p-6 rounded-2xl bg-card border border-border shadow-sm">
+          <div className="mt-6 p-4 sm:p-6 rounded-2xl bg-card border border-border shadow-sm">
             <h3 className="text-lg font-bold text-foreground mb-5">Logros</h3>
             {achievements.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-6">No hay logros configurados aún</p>
             ) : (
-              <div className="grid md:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {achievements.map((a, i) => {
                   const Icon = BADGE_ICONS[a.icon] ?? Trophy;
                   return (
@@ -270,7 +270,7 @@ export default function ProfilePage() {
           </div>
 
           {/* ── Estadísticas ── */}
-          <div className="mt-6 p-6 rounded-2xl bg-card border border-border shadow-sm mb-6">
+          <div className="mt-6 p-4 sm:p-6 rounded-2xl bg-card border border-border shadow-sm mb-6">
             <h3 className="text-lg font-bold text-foreground mb-5">Estadísticas</h3>
             <div className="space-y-3">
               {[

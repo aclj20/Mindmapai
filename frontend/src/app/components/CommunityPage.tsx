@@ -96,7 +96,7 @@ export default function CommunityPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-background pb-20 md:pb-0 font-sans text-foreground">
+    <div className="min-h-screen bg-background pb-20 md:pb-0 font-sans text-foreground overflow-x-hidden">
       <nav className="sticky top-0 z-40 p-4 bg-background border-b border-border shadow-sm">
         <div className="container mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -134,10 +134,10 @@ export default function CommunityPage() {
         </div>
       </nav>
 
-      <div className="container mx-auto px-4 py-8 max-w-7xl">
+      <div className="container mx-auto px-4 py-4 sm:py-8 max-w-7xl">
         <Tabs.Root defaultValue="trending" className="space-y-6">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <Tabs.List className="flex gap-2 p-1 rounded-xl bg-card border border-border shadow-sm">
+            <Tabs.List className="flex gap-1 sm:gap-2 p-1 rounded-xl bg-card border border-border shadow-sm w-full sm:w-auto overflow-x-auto">
               <Tabs.Trigger
                 value="trending"
                 className="px-4 py-2 rounded-lg text-sm font-semibold text-muted-foreground transition-all hover:bg-muted data-[state=active]:bg-primary-subtle data-[state=active]:text-primary"

@@ -22,7 +22,8 @@ export default function MobileNav() {
             <Link
               key={item.path}
               to={item.path}
-              className="relative flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all flex-1"
+              className="relative flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all flex-1 select-none"
+              style={{ WebkitTapHighlightColor: 'transparent' }}
             >
               {isActive && (
                 <motion.div
@@ -31,7 +32,7 @@ export default function MobileNav() {
                   transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
                 />
               )}
-              <div className="relative">
+              <div className="relative z-10">
                 {item.highlight ? (
                   <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center -mt-8 shadow-xl shadow-primary/20 border border-primary/50 ring-4 ring-background">
                     <item.icon className="w-6 h-6 text-primary-foreground" />
@@ -46,7 +47,7 @@ export default function MobileNav() {
               </div>
               {!item.highlight && (
                 <span
-                  className={`text-[10px] font-bold transition-colors uppercase tracking-tight ${
+                  className={`relative z-10 text-[10px] font-bold transition-colors uppercase tracking-tight ${
                     isActive ? "text-primary" : "text-muted-foreground"
                   }`}
                 >

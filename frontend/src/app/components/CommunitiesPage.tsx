@@ -122,18 +122,23 @@ export default function CommunitiesPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-24 md:pb-0 font-sans text-foreground">
+    <div className="min-h-screen bg-background pb-24 md:pb-0 font-sans text-foreground overflow-x-hidden">
       <nav className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border shadow-sm">
-        <div className="container mx-auto px-4 py-3 grid grid-cols-3 items-center gap-3">
-          <div className="flex items-center gap-2 justify-self-start">
+        <div className="container mx-auto px-4 py-3 flex flex-col sm:grid sm:grid-cols-3 items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-2 w-full sm:justify-self-start">
             <button
               onClick={() => navigate(isGuest ? "/" : "/dashboard")}
               className="hover:cursor-pointer w-9 h-9 rounded-full border border-border bg-card flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shrink-0">
               <ArrowLeft className="w-4 h-4" />
             </button>
-            <h1 className="text-lg font-extrabold tracking-tight whitespace-nowrap">Comunidades</h1>
+            <h1 className="text-lg font-extrabold tracking-tight whitespace-nowrap flex-1">Comunidades</h1>
+            <button
+              onClick={() => requireAuth({ type: "create" }) && setShowCreate(true)}
+              className="hover:cursor-pointer sm:hidden flex items-center gap-1.5 px-3 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition-colors shrink-0">
+              <Plus className="w-4 h-4" /> Crear
+            </button>
           </div>
-          <form onSubmit={handleSearch} className="max-w-sm w-full relative justify-self-center">
+          <form onSubmit={handleSearch} className="w-full relative sm:max-w-sm sm:justify-self-center">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <input value={query} onChange={e => handleQueryChange(e.target.value)}
               placeholder="Buscar comunidades..."
@@ -141,7 +146,7 @@ export default function CommunitiesPage() {
           </form>
           <button
             onClick={() => requireAuth({ type: "create" }) && setShowCreate(true)}
-            className="hover:cursor-pointer flex items-center gap-1.5 px-3 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition-colors shrink-0 justify-self-end">
+            className="hover:cursor-pointer hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition-colors shrink-0 sm:justify-self-end">
             <Plus className="w-4 h-4" /> Crear
           </button>
         </div>
